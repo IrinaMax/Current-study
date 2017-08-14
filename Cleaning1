@@ -1,0 +1,466 @@
+https://github.com/IrinaMax/Current-study.git
+
+#work with join htpd join_maxhtpddiequal_ds_7var.csv
+inputPath <- "/Users/38923/Desktop/R/WD_PR2/join_maxhtpddiequal_ds_7var.csv"
+outputPath <- "/Users/38923/Desktop/R/WD_PR2/result_htpd.csv"
+logPath <-"/Users/38923/Desktop/R/WD_PR2/log_work.txt"
+library(caret)
+
+sink(logPath)
+## For install on the cluster glmnet in R
+install.packages("glmnet", repos = "http://cran.us.r-project.org")  
+library(glmnet)
+library(MASS)
+library(dplyr)
+library(plyr)
+library(caret)
+setwd("/Users/38923/Desktop/R/WD_PR2")
+df <- read.csv("join_maxhtpddiequal_ds_7var.csv", header = TRUE, sep = ",", na.strings = c("NULL", "NaN", "NA"), stringsAsFactors = TRUE)
+df1 <- df  # save orig df as df1
+
+##Let's look how many columns without missing value to see possibility to shrink it.
+NoMissingdf <- colnames(df)[colSums(is.na(df)) == 0]
+cat('Number of Columns in the original table: ,')
+cat(ncol(df),'\n')   # 1658 
+
+# Columns with more than 20% missing values
+a <- (colSums(is.na(df) | df=='', na.rm = TRUE)/nrow(df) > 0.2)
+a1 <- a[a==TRUE]
+a1.names <- names(a1)
+df <- df[ , !names(df) %in% a1.names]
+cat('Number of columns with more than 20% missing values: ,',length(a1),'\n')   
+#   shrinked to 1257
+cat('Name of these columns: ,')
+cat(a1.names,'\n', sep = ',')
+#print('Omitting more than 20% missing result')
+print(ncol(df))
+a <- (rowSums(is.na(df) | df=='', na.rm = TRUE)/ncol(df) > 0.2)
+df <- df[!a,]
+cat('Number of rows with more than 20% missing values: ,',sum(a),'\n')
+nzv1 <- nearZeroVar(df, saveMetrics= TRUE)
+a<-row.names(nzv1)[nzv1$nzv == TRUE]
+df<-df[, !names(df) %in% a]
+print('Omitting nzv result')
+print(ncol(df))
+# 840
+cat('Number of columns with near zero variance: ,',length(a),'\n')
+cat('Name of These columns: ,')
+cat(a,'\n', sep = ',')
+
+df.numeric <- data.matrix(df)
+df.colin <- cor(df.numeric, use = "pairwise.complete.obs")
+CorPath <- capture.output(cat(substr(outputPath,1,nchar(outputPath)-4),'_CorMatrix.csv',sep = ""))
+write.csv(df.colin, CorPath, row.names=FALSE, na="")
+write.csv(df.colin, "CorMatrixHTPD.csv", row.names=FALSE, na="")
+hc = findCorrelation(df.colin, cutoff = 0.75, names = TRUE)
+df <- df[ , !names(df) %in% hc]
+print('Omitting dependent result')
+
+cat('Number of  less  correlated columns: ,',length(hc),'\n')
+cat('Name of these columns: ,')
+cat(hc,'\n', sep = ',')
+cat('Number of  highly  correlated columns: ,',length(df),'\n')
+print(dim(df))
+##  df$FBC n  id df$u._c6 rename it
+df <- rename(df, c("u._c6" = "FBC"))
+# will make copy of the data after cleaning
+df2 <- df
+col.name <- colnames(df)
+## END
+write.csv(df, outputPath, row.names=FALSE, na="")
+write.csv(df, "htpd_b3.csv", row.names=FALSE, na="")
+sink()
+####      E N D  CLEANING #################################
+
+
+##Let's look how many columns without missing value to see possibility to shrink it.
+NoMissingdf <- colnames(dfs)[colSums(is.na(df)) == 0]
+# 1253 col without NA, but it still can be a lot of no miningfull colomns with constant values and 0
+
+# try some ridge regression
+library(leaps)
+library(glmnet)
+require(leaps)
+require(glmnet)
+x <- as.matrix(df[ ,-354])
+df[, 354] 
+df%>% names
+y <- as.double(as.matrix(df[,  354]))
+y
+df2$FBC %>% head
+set.seed(999)
+
+cv.ridge <- cv.glmnet(x, y,  alpha=1, na.exclude) ## give error... why?? may be coz a factor :(
+#find all the rows in a data frame with at least one NA
+unique (unlist (lapply (df, function (x) which (is.na (x)))))
+
+
+fit = model.matrix(y~., -354 , data=df )
+fit %>% nrow %>% print
+y <- as.double(as.matrix(dfs$FBC))
+y <- df$FBC
+y
+fit.ridge = glmnet(fit, y, alpha = 0)
+                   
+dim(dfs$FBC)
+  
+#set.seed(123)
+
+train_ind <- sample(seq_len(nrow(df)), size = smp_size, replace = FALSE  )
+
+train <- df[train_ind, ]
+test <- df[-train_ind, ]
+train %>% dim
+test %>% dim
+names(train)
+names(test)
+
+y<-train["FBC"]
+y <- train$FBC     #split data 
+
+
+fit.ridge %>% summary()
+dim(fit)
+library(leaps)
+library(ISLR)
+## model of Forward selection  all set
+regfit.fwd = regsubsets(FBC ~ ., data = df, nvmax = 354, method = "forward")
+reg.summary <-summary(regfit.fwd)
+reg.summary
+names(reg.summary)
+plot(reg.summary$cp, xlab = "number of var", ylab = "Cp", main = "forward selection for all set")
+coef(regfit.fwd, 42)
+plot(regfit.fwd, scale = "FBC")   #working!
+
+## on train forward selection
+regfit.fwd.train = regsubsets(FBC ~ ., data = train, nvmax = 354, method = "forward")
+reg.train.summary <-summary(regfit.fwd.train)
+reg.train.summary
+names(reg.train.summary)
+plot(reg.train.summary$cp, xlab = "number of var", ylab = "Cp", col = "blue", main = "Forward selction")
+coef(regfit.fwd.train, 33)
+plot(regfit.fwd, scale = "Cp")   #working!
+
+
+
+# backward selection
+regfit.bwd.train = regsubsets(FBC ~ ., data = train, nvmax = 354, method = "backward")
+reg.bwd.train.summary <-summary(regfit.bwd.train)
+reg.bwd.train.summary
+names(reg.bwd.train.summary)
+plot(reg.bwd.train.summary$cp, xlab = "number of var", ylab = "Cp",col = "dark red", main = "Backward selection")
+which.mn(reg.bwd.train.summary$cp)
+  points(55, (reg.bwd.train.summary$cp[55], col = "black")
+         
+coef(regfit.bwd.train, 55 )
+plot(regfit.bwd.train, scale = "FBC")
+
+#[1] 3648  354
+
+set.seed(1)
+trainFS = sample(seq(3648), 300, replace = FALSE)
+train
+regfit.fwd = regsubsets(FBC ~ ., data = df[trainX, ], nvmax = 354, force.in = force.in, method = "forward")
+
+# library(corrplot)
+# corrplot(df.colin, type="lower")
+# corrplot(df.colin, type="upper", order="hclust", col=c("black", "white"),
+#          bg="lightblue")
+write.csv(df.colin, "CorMatrix.csv", row.names=FALSE, na="")
+
+CorPath <- capture.output(cat(substr(outputPath,1,nchar(outputPath)-4),'_CorMat.csv',sep = ""))
+write.csv(df.colin, "CorMat", row.names=FALSE, na="")
+hc = findCorrelation(df.colin, cutoff = 0.75, names = TRUE)
+df <- df[ , !names(df) %in% hc]
+dim(df)
+write.csv(df, "N_b3.csv", row.names=FALSE, na="")
+
+# try to do 80% cut off
+#hc_80 = findCorrelation(df.colin, cutoff = 0.8, names = TRUE)
+# df_80 <- df[ , !names(df) %in% hc_80]
+# dim(df_80)
+# write.csv(df_80, "N_b3_80coff.csv", row.names=FALSE, na="")
+
+#df$Pass_Fail <-ifelse(df$FBC.Max < 240, 1, 0)
+cvfit <- glmnet::cv.glmnet(x, y)
+coef(cvfit, s = "lambda.1se")
+
+
+#
+##  df$FBC n  id df$u._c6 rename it
+df <- rename(df, c("u._c6" = "FBC"))
+dfs <- df
+col.name <- colnames(dfs)
+col.name
+
+##some stepwise selection
+parms<-runif(354,-10,10)
+y<-dfs %*% matrix(parms) + rnorm(354,sd=20)
+
+
+levels(df_80$c.stageno) <-1:4
+split.col <- data.frame(t(sapply(df_80$c.stageno, `[`)))  # razdelit na 3 kolonki no ostavit char vnutri kajdoi kolonki
+
+headsplit.col%>% summary
+
+
+##CV
+dfcv <- as.data.frame.table(df)
+set.seed(11)
+folds = sample(rep(1:10, length = nrow(df)))
+folds
+cv.errors = matrix(NA, 10, 354)
+for (k in 1:10) {
+  best.fit = regsubsets(df$FBC ~ df$u.cycling, data = df[folds != k, ], nvmax = 354, 
+                        method = "forward")
+  for (i in 1:354) {
+    pred = predict(best.fit, df[folds == k, ], id = i)
+    cv.errors[k, i] = mean((df$FBC[folds == k] - pred)^2)
+  }
+}
+
+na <-(is.na(dfs) ==TRUE)
+which(is.na(dfs$Freq.c.stageno ))
+narmse.cv = sqrt(apply(cv.errors, 2, mean))
+plot(rmse.cv, pch = 354, type = "b")
+
+
+
+nrow(df$FBC)
+df$FBC
+
+
+
+#lasso
+## 75% of the sample size  or may be 80%  ???
+smp_size <- floor(0.80 * nrow(df))
+
+## set the seed to make your partition reproductible
+set.seed(123)
+
+train_ind <- sample(seq_len(nrow(df)), size = smp_size, replace = FALSE  )
+
+train <- df[train_ind, ]
+test <- df[-train_ind, ]
+test %>% dim
+names(train)
+names(test)
+
+y<-train["FBC"]
+y <- train$FBC
+
+c(y)
+
+yvector<-c(y)
+
+is.vector(yvector)
+
+grid=10^seq(10,-2,length=24)
+
+lasso.mod=glmnet(train,yvector, alpha=1, lambda=grid)    #not working
+lasso.mod=glmnet(train,y, alpha=1, lambda=grid)   # not working
+lasso.mod=glmnet(train,, alpha=1, lambda=grid)   # not working
+
+
+######   LASSO --------------------------------------------------------------------------------
+# The other way of LASSO with library(glmnetUtils)
+library(devtools)
+install_github("hong-revo/glmnetUtils")
+library(glmnetUtils)
+lasso.mod <- glmnet(FBC ~ ., data=train, alpha=1, lambda=grid)   # working!
+summary(lasso.mod)
+lasso.mod
+plot(lasso.mod) 
+
+coef(lasso.mod)
+lasso.mod$lambda.min
+lasso.mod$lambda.max
+
+##  try 2
+library(glmnet)
+`%ni%`<-Negate("%in%")
+dfcv2 <-  na.omit(df)               
+                
+                dfcv2<-model.matrix(FBC~., data = dfcv2)
+                x=dfcv2[,-354]
+              summary(dfcv2)
+                dim(dfcv2)
+                colnames(dfcv2)
+                y<-dfcv2["FBC"]
+                y <- dfcv2$FBC
+                
+                c(y)
+              
+                yvector<-c(y)
+                
+                is.vector(yvector)
+                
+                glmnet1<-cv.glmnet(x=x,y=y,type.measure='mse',nfolds=5,alpha=.5)
+                
+                c<-coef(glmnet1,s='lambda.min',exact=TRUE)
+                inds<-which(c!=0)
+                variables<-row.names(c)[inds]
+                variables<-variables[variables %ni% '(Intercept)']
+library(leaps)
+ regfit.full <- regsubsets(FBC~., data = df,  really.big=TRUE)   # very slow ...
+ summary.full.bestsubset <- summary(regfit.full)
+                
+# lasso.mod2 <- glmnet(FBC ~ ., data=test, alpha=1, lambda=grid)
+# lasso.mod2
+# plot(lasso.mod2)
+# lasso.mod2$lambda.min
+# lasso.mod2$lambda.max
+# coef(lasso.mod2, s = lasso.mod2$lambda.min)
+
+# [[ suppressing 24 column names ‘s0’, ‘s1’, ‘s2’ ... ]]
+# 
+# c.crd_scrnslcbot_p_                . . . . . . . . . . . . . . . . . . . . .             .             0.0823613355  0.1478708012
+# c.bbk_mhopen2_p_                   . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# c.veralooptrial1__                 . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# c.veralooptrial2__                 . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# c.vpgmslooptrial2__                . . . . . . . . . . . . . . . . . . . . .             .             .             0.0424649099
+# c.vpgmulooptrial2__                . . . . . . . . . . . . . . . . . . . . .            -0.4051845719 -0.6007486045 -0.5727201858
+# c.crd_fastdin_ev_c_pcs_            . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# c.bbk_amhshort1_ev_d_pcs_          . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# c.bbk_wlmh_6_d_pcs_                . . . . . . . . . . . . . . . . . . . . .            -0.0230730196 -0.0679546045 -0.0596966006
+# c.bbk_high_wldd0_ev_d_pcs_         . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# c.sfbc_t32wlsalp_far_dc_fresh_pcs_ . . . . . . . . . . . . . . . . . . . . 1.607950e-04  0.0002895678  0.0002642303  0.0001888215
+# c.sfbc_t32wlsaerx_far_fresh_pcs_   . . . . . . . . . . . . . . . . . . . . .             .             .            -0.0001135698
+# c.sfbc_t32wlsalp_far_fresh_pcs_    . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# c.sfbc_b32wlsalp_far_fresh_pcs_    . . . . . . . . . . . . . . . . . . . . 1.018429e-04  0.0006060390  0.0008127144  0.0007443764
+# u.cycling                          . . . . . . . . . . . . . . . . . . . . 4.499746e-05  0.0002950020  0.0003838211  0.0004128752
+# u.x                                . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# u.y                                . . . . . . . . . . . . . . . . . . . . .             .             .            -0.0105391919
+# u.page_typeLP                      . . . . . . . . . . . . . . . . . . . . .             .             .             .           
+# u.page_typeMP                      . . . . . . . . . . . . . . . . . . . . 4.750280e-01  0.9484827611  1.0369397704  1.0689714204
+# u.page_typeUP                      . . . . . . . . . . . . . . . . . . . . .            -0.1091792643 -0.2568436242 -0.3257777006
+#c.ds_r__             .       .       .       .       0.5396472 0.6396153  0.27582489   0.01873566
+
+c<-coef(Mod3, s='lambda.min',exact=TRUE)
+Mod3
+inds<-which(c!=0)
+variables<-row.names(c)[inds]
+variables<-variables[variables %ni% '(Intercept)']
+
+
+
+
+
+
+
+testX <- as.matrix(test[, -354])
+summary(as.numeric(predict(lasso.mod, trainX) - 
+                     predict(lasso.mod2, testX)))
+
+
+
+trainX %>% dim
+trainY %>% dim
+trainY <- as.matrix(trainY)
+cv = cv.glmnet(trainX, trainY)
+model = glmnet(trainX, trainY, type.gaussian="covariance", lambda=cv$lambda.min)
+predict(model, type="coefficients")
+
+
+# Fitting the model (Lasso: Alpha = 1)
+set.seed(999)
+trainX <- as.matrix(train[,-354])
+trainY <- as.double(as.matrix(train[, 354]))
+weights=2918
+cv.lasso <- cv.glmnet(as.matrix(trainX), as.matrix(trainY),  family  = "binomial", alpha=1, parallel=TRUE, standardize=TRUE, type.measure="mse")
+glmnet1<-cv.glmnet(as.matrix(trainX), as.matrix(trainY), type.measure='mse',nfolds=5,alpha=.5)
+
+Mod3 <- glmnet(FBC ~ ., data=train,use.model.frame=TRUE)
+Mod3 %>% plot
+# Results
+plot(cv.lasso)
+plot(cv.lasso$glmnet.fit, xvar="lambda", label=TRUE)
+cv.lasso$lambda.min
+cv.lasso$lambda.1se
+coef(cv.lasso, s=cv.lasso$lambda.min)
+
+## ------------------------------------------------------------------------
+# least squares regression
+LSR<- glmnet(FBC ~., data=train)
+plot(LSR, main= " Least Squares Regression")   #Working!
+
+# multinomial logistic regression with specified elastic net alpha parameter
+multinom <- glmnet(FBC ~ ., data=trainX, family="multinomial", alpha=0.5, na.omit)   #error !
+
+# Poisson regression with an offset
+InsMod <- glmnet(FBC~., data=train,
+                  family="poisson", offset=log(FBC))
+summary(InsMod)
+plot(InsMod)
+## ---- eval=FALSE---------------------------------------------------------
+ # least squares regression: get predictions for lambda=1
+ predict(LSR, newdata=test, s=1)
+
+ # multinomial logistic regression: get predicted class
+ #predict(multinom, newdata=test, type="class")
+
+ # Poisson regression: need to specify offset
+ predict(InsMod, newdata=test, offset=log(FBC))
+
+
+Mod2 <- glmnet(trainX, trainY)
+
+summary(as.numeric(predict(mtcarsMod, mtcars) - 
+                     predict(mtcarsMod2, mtcarsX)))
+
+trainX <- as.matrix(df[ ,-354])
+trainY <- df$FBC
+Mod2 <- glmnet(trainX, trainY)
+
+summary(as.numeric(predict(Mod, mtcars) - 
+                     predict(mtcarsMod2, mtcarsX)))
+
+
+# df[, 354] 
+# df%>% names
+# y <- as.double(as.matrix(df[,  354]))
+# y
+# df2$FBC %>% head
+# 
+# cv.ridge <- cv.glmnet(x, y,  alpha=1, na.exclude) ## give error... why?? may be coz a factor :(
+# #find all the rows in a data frame with at least one NA
+# unique (unlist (lapply (df, function (x) which (is.na (x)))))
+# 
+# 
+# fit = model.matrix(y~., -354 , data=df )
+# fit %>% nrow %>% print
+# y <- as.double(as.matrix(dfs$FBC))
+# y <- df$FBC
+
+## ---- eval=FALSE---------------------------------------------------------
+#  # generate sample (uncorrelated) data of a given size
+#  makeSampleData <- function(N, P)
+#  {
+#      X <- matrix(rnorm(N*P), nrow=N)
+#      data.frame(y=rnorm(N), X)
+#  }
+#  
+#  # test for three sizes: 100/1000/10000 predictors
+#  t1 <- makeSampleData(N=1000, P=100)
+#  t2 <- makeSampleData(N=1000, P=1000)
+#  t3 <- makeSampleData(N=1000, P=10000)
+#  
+#  library(microbenchmark)
+#  res <- microbenchmark(
+#      glmnet(y ~ ., df1, use.model.frame=TRUE),
+#      glmnet(y ~ ., df1, use.model.frame=FALSE),
+#      glmnet(y ~ ., df2, use.model.frame=TRUE),
+#      glmnet(y ~ ., df2, use.model.frame=FALSE),
+#      glmnet(y ~ ., df3, use.model.frame=TRUE),
+#      glmnet(y ~ ., df3, use.model.frame=FALSE),
+#      times=10
+#  )
+#  print(res, unit="s", digits=2)
+
+## ---- eval=FALSE---------------------------------------------------------
+#  df4 <- makeSampleData(N=1000, P=100000)
+#  
+#  glmnet(y ~ ., df4, use.model.frame=TRUE)
+
+## ---- eval=FALSE---------------------------------------------------------
+#  glmnet(y ~ ., df4, use.model.frame=FALSE)
