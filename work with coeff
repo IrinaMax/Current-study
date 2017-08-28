@@ -1,0 +1,238 @@
+library(glmnet)
+library(dplyr)
+library(plyr)
+library(corrplot)
+library(caret)
+library(devtools)
+
+# just look at diequal table
+b3 <- read.csv("0816_HTPD_dqmaxfbc.csv")
+summary(b3)
+# rename fbc
+b3 <- rename(b3, c("X_c6"="FBC", "a.lot"="lot",     "a.wafer"="wafer",  "a.x"= "x"      , "a.y"= "y",       "a.blk" ="blk" ,   "a.cycling" = "cycling"))
+b3 %>% names   # [1] "a.lot"     "a.wafer"   "a.x"       "a.y"       "a.blk"     "a.cycling" "X_c6" 
+which.max(b3$FBC)
+# remove outlier
+out999 <- b3[2875,]
+b3 <- b3[-2875, ]
+row.names(b3) <- 1:nrow(b3)
+row.names(b3)
+write.csv(b3, "cleaned_0816_HTPD_dqmaxfbc.csv")
+head(b3)
+
+# 
+# cf <- mapply(function(x,y) 
+#               lm(y~x)$coefficients, x=as.data.frame((b3[,6])), y=as.data.frame((b3[,7])))
+# x= as.data.frame(t(b3[,6]))
+#                 x
+#                 y=as.data.frame(t(b3[,7]))
+# y
+# cf <- t(as.data.frame(cf))
+# head(cf)
+# cf
+# #mapply(function(x,y) lm(y~x)$coefficients, as.data.frame(t(DFNew[1:3])),
+# #       as.data.frame(t(DFNew[4:6])))
+# 
+# cf <- t(mapply(function(x,y) lm(y~x)$coefficients, as.data.frame(t(b3[,6])),
+#        as.data.frame(t(b3[,7]))))
+# head(cf)
+# apply(x, 1, function(v) lm(v[y]~v[x])$coefficients)
+# y <-as.matrix(b3[,7])
+# y
+# x <-as.matrix(b3[,6])
+# x
+# xy <- cbind(y,x)
+# head(xy)
+# 
+# set.seed(25)
+# DFNew <- as.data.frame(matrix(sample(1:50,10*6, replace=TRUE), ncol=6))
+# DFNew
+# apply(DFNew, 1, function(x) lm(x[4:6]~x[1:3])$coefficients)
+# 
+# coef_b3 <- function(x,y){
+#   lm(y~x)$coefficients
+# }
+# cc <- coef_b3(x,y)
+# # apply lm
+# for (i in 1: y){
+#      lm <- lm(y~x)
+#      lm$coefficient
+# }
+# coefficients(lm)
+# summary(lm)
+# 
+# y.mat <- t(b3[,"FBC"])
+# y.mat
+# x.mat <- t(b3[, "cycling"])
+# 
+# reg <- lm.fit(x.mat, y.mat)$coefficients
+# reg
+# 
+# 
+# slp = function(x) {
+#   y = t(x)
+#   y = y[!is.na(y)]
+#   len = length(y):1
+#   b = cov(y,len)/var(len)
+#   return(b)}
+# 
+# reg_slp <- apply(,1,slp)
+# 
+# 
+# DFNew
+# apply(b3, 1, function(x) lm(x[7]~x[6])$coefficients)
+# 
+# #Method3
+# day1 <- c(1,3,1)
+# day2 <- c(2,2,1)
+# day3 <- c(3,1,5)
+# data <- data.frame(day1,day2,day3)
+# data
+# y<-1:3
+# reg<-apply(data,1,function(x) lm(as.numeric(x)~y))
+# reg
+# data[,c("intercept","slope")]<-rbind(reg[[1]]$coef,reg[[2]]$coef,reg[[3]]$coef)
+# data
+# 
+# 
+# design.mat <- cbind(1,1:3)
+# response.mat <- t(data[,1:3])
+# design.mat
+# response.mat
+# reg
+# #----------------
+# result = matrix(nrow=nrow(X), ncol=(2))
+#  
+# 
+# library(dplyr)
+# y <- 1:nrow(b3)   # number of rows
+# y
+# b3_l <- b3[,6:7]
+# b3_l %>% head
+# reg<-apply(b3_l,1,function(x) lm(as.numeric(y)~x))
+# reg
+# # My stupid loop
+# X<- b3$a.cycling
+# Y <-b3$X_c6
+# a <- 1:nrow(b3)
+# for(i in a ){
+#  result <- as.matrix(lm(Y[i] ~ X[i]))
+#  print(result)
+# }
+# x <- as.factor(x)
+# # tri with list
+# b3_list <- split(b3[,6:7], seq(nrow(b3[,6:7])))
+# head(b3_list)
+# cf <- lapply(b3_list, function(x){
+#   lm(FBC ~ cycling, data = x)$coefficients
+# })
+# cf
+# results <- do.call(rbind, cf)
+# results
+# b3_list[[2]]
+# for (i in 1:list(b3_list)){
+#   b3_coef[[i]]<- coefficients(lm(X_c6[i]~ a.cycling[i]))
+# }
+#   
+#   ##2
+# b3_list <- split(b3, seq(nrow(b3)))
+# head(b3_list)
+# cf <- lapply(b3_list, function(x){
+#   lm(FBC ~ cycling+x+y, data = x)$coefficients
+# } na.omit())
+#   
+# library(ldply)  
+# cf
+# cf2 <- ldply(b3_list, function(x) {
+#   lm(FBC ~ cycling, data = x)$coefficients
+# })
+# 
+# # my.coef <- sapply( b3_list, function(dat) { 
+# #   coef(lm( FBC ~ cycling,
+# #            data=dat) )
+# # })
+# # head(my.)
+# # results <- do.call(rbind, my.coef)
+# # results
+# library(dplyr)          # bind_rows is more efficient than do.call(rbind, ...)
+# library(broom) 
+# bind_rows(lapply(b3_list, function(dat)
+#        tidy(lm(FBC ~ cycling, data=dat))))
+
+## 0817
+col <- c("lot", "wafer", "x", "y")
+arrange(b3, col)
+b3 %>% group_by_(.dot =c("lot", "wafer", "x", "y"))
+
+# try to make list of die by combo unique col
+b3_list1 <- split(b3, seq(unique(c("lot", "wafer", "x", "y"))))
+b3_list1
+b3_list2 <- split(b3, seq( "wafer", "x", "y", "lot"))
+gb <- group_by(b3, c( "wafer", "x", "y", "lot"))
+gb
+# looks like here is 4 dies
+#lin reg for the
+bind_rows(lapply(b3_list1, function(dat)
+  tidy(lm(FBC ~ cycling, data=dat))))
+
+un<-unique(b3[c("lot", "wafer", "x", "y")])
+un
+b3[dublicated(b3[,1:4])]
+b3 %>% head
+
+sqldf("select, wafer, x, y, lot
+from b3 group by  wafer, x, y, lot")
+
+# working pretty fast --------------------------------------------------------------------
+library(data.table)   
+# b3[, list, by = key(c( "wafer", "x", "y", "lot"))]   ne budu poka
+# split(b3, col( "wafer", "x", "y", "lot"))
+
+datDT <- data.table(b3,  key= c("wafer", "x", "y", "lot"))
+datDT
+
+b3_coef<-datDT[, list(coef(lm(FBC~cycling))), by = key(datDT)]  #give a matrix  of 304 with intercept and slop
+b3_coef<- rename(b3_coef, c("V1" = "coeff" ))
+b3_coef
+write.csv(b3_coef, "dies_coef.csv")
+write.csv2  (b3_coef, "dies_coef1.csv")
+
+# we need to take only every second line to pull the slop, the first lines are intercept
+b3_coef_slop <- b3_coef[-seq(1, NROW(b3_coef), by = 2)]
+b3_coef_slop
+b3_coef_slop <-as.data.frame(b3_coef_slop)
+write.csv(b3_coef_slop, "dies_slop.csv")
+
+#       END
+#-------------------------  CHEKING OUT FIRST TWO DIES-------------------------------------------
+# add FBC and cicling
+b3_dq_wslop<- full_join(datDT,  b3_coef_slop, by = c("wafer", "x", "y", "lot"))
+
+write.csv(b3_dq_wslop, " dies_dq_slop.csv")   # saving die qual with slop
+
+
+
+#-------------------------  CHEKING OUT FIRST TWO DIES-------------------------------------------
+
+
+
+#df[-seq(n, NROW(df), by = n),]  #  pick every n row
+
+Nth.delete<-function(dataframe, n)dataframe[-(seq(n,to=nrow(dataframe),by=n)),]  # the function to delet every n-th row 
+b3_coef_slop <-Nth.delete( b3_coef, 1) # I dont need the intercept so I deleted every first row
+b3_coef_slop
+
+#working withfirst set - one die
+b3_1die <- datDT[1:111,]
+lm_1die<-lm(FBC~cycling, b3_1die)
+lm_1die %>% summary()
+lm_1die %>% coefficients()  ## coefficients just corect
+
+b3_2die <- datDT[112:220,]
+lm_2die <- lm(FBC~cycling, b3_2die)
+coef(lm_2die)
+coef(lm_1die)
+coefficients(as.metrix(lm_1die))
+b3_coef
+b3_sort<-datDT[, list(unique(b3$FBC,b3$cycling,coefficients(lm(FBC~cycling))),  by = key(datDT))]
+b3_sort 
