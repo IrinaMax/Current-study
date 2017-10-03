@@ -1,0 +1,105 @@
+#  -----------try XGBoost and ranger--------------
+library(FeatureSelection)
+devtools::install_version("xgboost", version = "0.4-4", repos = "http://cran.us.r-project.org")
+install.packages("ranger")
+library(dplyr)
+library(xgboost)
+library(ranger)
+
+df_copy <- df
+X_n = df[, -351]
+y_n = df[, 351]
+
+## 75% of the sample size  or may be 80%  ???
+set.seed(123)
+smp_size <- floor(0.80 * nrow(df))
+
+train_ind <- sample(seq_len(nrow(df)), size = smp_size, replace = FALSE  )
+
+train <- df[train_ind, ]
+test <- df[-train_ind, ]
+
+#TRAIN
+train %>% dim
+#[1] 5433  352
+tx <- train[,-c(351)]
+#[1] 135 353
+names(train)
+tx <- model.matrix(fbc~. , -351, data=train )
+ty <- as.matrix(train[, 351]) # Only slop
+ty %>% dim
+
+# TEST
+test %>% dim
+#[1]  16 353
+names(test)
+y_st <- test[,351]
+y_st %>% summary  # we need to to campare result
+test <- model.matrix(slop~. , -351, data=test )
+test <- test[, -c(351)]
+test
+
+#X_train obviously all data
+p = df[, 'fbc']
+########
+params_glmnet = list(alpha = 1, family = 'gaussian', nfolds = 5, parallel = TRUE, standardize=TRUE, standardize.response = TRUE)
+
+
+params_xgboost = list( params = list("objective" = "reg:linear", "bst:eta" = 0.001, "subsample" = 0.75, "max_depth" = 5,
+                                     
+                                     "colsample_bytree" = 0.75, "nthread" = 6),
+                       
+                       nrounds = 1000, print.every.n = 250, maximize = FALSE)
+
+
+params_ranger = list(dependent.variable.name = 'y', probability = FALSE, num.trees = 1000, verbose = TRUE, mtry = 5, 
+                     
+                     min.node.size = 10, num.threads = 6, classification = FALSE, importance = 'permutation')
+
+
+params_features = list(keep_number_feat = NULL, union = TRUE)
+
+
+feat <- wrapper_feat_select(X = tx, y = ty, params_glmnet = params_glmnet, params_xgboost = params_xgboost, 
+                            
+                            params_ranger = params_ranger, xgb_sort = 'Gain', CV_folds = 5, stratified_regr = FALSE, 
+                            
+                            scale_coefs_glmnet = FALSE, cores_glmnet = 5, params_features = params_features, verbose = TRUE)
+##  run all
+str(feat)
+params_barplot = list(keep_features = 30, horiz = TRUE, cex.names = 1.0)
+
+barplot_feat_select(feat, params_barplot, xgb_sort = 'Cover')
+#params_glmnet = list(alpha = 1, family = 'gaussian', nfolds = 10, parallel = TRUE,standardize=TRUE, standardize.response = TRUE)
+res_n = feature_selection(X_n, y_n, method = 'glmnet-lasso', params_glmnet = params_glmnet, CV_folds = 5, cores_glmnet = 5)
+
+# binary classification
+
+# data(iris)
+# y = iris[, 5]
+# y = as.character(y)
+y[y == 'fbc'] = 'fbc'
+# X = iris[, -5]
+
+params_ranger = list(write.forest = TRUE, probability = TRUE, num.threads = 6, num.trees = 50, verbose = FALSE, classification = TRUE, mtry = 2, min.node.size = 5, importance = 'impurity')
+
+res_s = feature_selection(tx, ty, method = 'ranger', params_ranger = params_ranger, CV_folds = 5)
+
+
+# multiclass classification
+
+
+# data(iris)
+# y = iris[, 5]
+y[y == 'slop'] = 'slop'
+tx <- train[,-c(353)]
+multiclass_xgboost = ifelse(y == 'slop', 0, ifelse(y == 'slop', 1, 2))
+# X = iris[, -5]
+
+params_xgboost = list( params = list("objective" = "multi:softprob", "bst:eta" = 0.35, "subsample" = 0.65, "num_class" = 3, "max_depth" = 6, "colsample_bytree" = 0.65, "nthread" = 2),
+                       nrounds = 50, print.every.n = 50, verbose = 0, maximize = FALSE)
+
+res_xgboost = feature_selection(xt, multiclass_xgboost, method = 'xgboost', params_xgboost = params_xgboost, CV_folds = 5)
+
+
+
