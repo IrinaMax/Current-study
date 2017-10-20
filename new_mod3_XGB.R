@@ -1,0 +1,483 @@
+#  -----------try XGBoost and ranger--------------
+library(FeatureSelection)
+devtools::install_version("xgboost", version = "0.4-4", repos = "http://cran.us.r-project.org")
+install.packages("ranger")
+library(dplyr)
+library(xgboost)
+library(ranger)
+library(caret)
+library(dplyr)
+library(corrplot)
+library(plyr)
+library(data.table)
+start.time <- Sys.time()
+
+
+df_copy <- df
+df <- na.omit(df)
+X_n = df[, -351]
+X_n
+y_n = df[, 351]
+
+## 75% of the sample size  or may be 80%  ???
+set.seed(123)
+smp_size <- floor(0.90 * nrow(df))
+
+train_ind <- sample(seq_len(nrow(df)), size = smp_size, replace = FALSE  )
+
+train <- df[train_ind, ]
+test <- df[-train_ind, ]
+
+#TRAIN
+train %>% dim
+#[1] 5433  352
+tx <- train[,-c(351)]
+#[1] 135 353
+names(train)
+tx <- model.matrix(fbc~. , -351, data=train )
+ty <- as.matrix(train[, 351]) # Only slop
+ty %>% dim
+ty
+# TEST
+test %>% dim
+#[1]  16 353
+names(test)
+y_st <- test[,351]
+y_st %>% summary  # we need to to campare result
+test <- model.matrix(fbc~. , -351, data=test )
+test <- test[, -c(351)]
+test
+df_mat <- model.matrix(fbc~., -351, data=df)
+y_mat <- as.matrix(df[,351])
+#X_train obviously all data
+p = df[, 'fbc']
+
+########
+params_glmnet = list(alpha = 1, family = 'gaussian', nfolds = 5, parallel = TRUE, standardize=TRUE, standardize.response = TRUE)
+
+
+params_xgboost = list( params = list("objective" = "reg:linear", "bst:eta" = 0.001, "subsample" = 0.75, "max_depth" = 5,
+                                     
+                                     "colsample_bytree" = 0.75, "nthread" = 6),
+                       
+                       nrounds = 1000, print.every.n = 250, maximize = FALSE)
+
+
+params_ranger = list(dependent.variable.name = 'y', probability = FALSE, num.trees = 1000, verbose = TRUE, mtry = 5, 
+                     
+                     min.node.size = 10, num.threads = 6, classification = FALSE, importance = 'permutation')
+
+
+params_features = list(keep_number_feat = NULL, union = TRUE)
+
+
+feat1 <- wrapper_feat_select(X = tx, y = ty, params_glmnet = params_glmnet, params_xgboost = params_xgboost, 
+                            
+                            params_ranger = params_ranger, xgb_sort = 'Gain', CV_folds = 10, stratified_regr = FALSE, 
+                            
+                            scale_coefs_glmnet = FALSE, cores_glmnet = 5, params_features = params_features, verbose = TRUE)
+##  run all
+capture.output(feat1, file = "feat1_XGB_Lasso_Ranger_model.txt")
+str(feat1)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+#The feature importance of the object feat can be plotted using the barplot_feat_select function, which takes as an additional argument the params_barplot,
+params_barplot = list(keep_features = 30, horiz = TRUE, cex.names = 1.0)
+
+barplot_feat_select(feat1, params_barplot, xgb_sort = 'Cover')
+af <- feat1$all_feat
+write.csv(af, "All_feat_10fold_1004.csv", row.number=TRUE)
+union<-data.table(feat1$union_feat %>% head(30))
+write.table(union, "Union_feat_10fold_1004.csv")
+
+#                               feature importance Frequency
+# 65                            levelMP 1.00000000         3
+# 162                         vf_sk_mv_ 0.96188039         3
+# 204                   vth_sgs_med_mv_ 0.91076477         3
+# 81                  sde_pmp_vm_s_dac_ 0.91042283         3
+# 208             vth_wlds0last_l3s_mv_ 0.90680176         3
+# 112     tlcwc_we0_wl0_fr_s25_f2g_pcs_ 0.90148128         3
+# 90         sfbc_b32wlsaup_drpost_pcs_ 0.89846373         3
+# 57                     icca_add00_ua_ 0.89247828         3
+# 114    tlcwc_we0_wl31_fr_s25_f2g_pcs_ 0.89104779         3
+# 31               crd_m1bll_224_c_pcs_ 0.88318965         3
+# 37                            cycling 0.87668968         3
+# 103  sfbc_t32wlsalp_far_dc_fresh_pcs_ 0.87374258         3
+# 124                tproga2slcrand_us_ 0.87057310         3
+# 44                    fbc_sdllk4_pcs_ 0.86989507         3
+# 100    sfbc_t32wlsaerx_far_fresh_pcs_ 0.86705185         3
+# 102        sfbc_t32wlsalp_drpost_pcs_ 0.85909808         3
+# 104     sfbc_t32wlsalp_far_fresh_pcs_ 0.83557916         3
+# 122                          tpor_us_ 0.83174190         3
+# 201                   vth_sgd_med_mv_ 0.82338924         3
+# 2            bbk_high_wldd0_ev_d_pcs_ 0.82338786         3
+# 209                 vth_wlds1_med_mv_ 0.82310217         3
+# 107                               tem 0.81690158         3
+# 115    tlcwc_we0_wl63_fr_s25_a2r_pcs_ 0.81058468         3
+# 99      sfbc_t32wlsaerx_dc_lijl2_pcs_ 0.78973728         3
+# 94         sfbc_slcerslp_20kpost_pcs_ 0.77843771         3
+# 146                     vcg_gv3_t_mv_ 0.77466785         3
+# 207                 vth_wlds0_win_mv_ 0.76841675         3
+# 248          wlleak_each_value_34_na_ 0.75793602         3
+# 96          sfbc_slcerslp_7kpost_pcs_ 0.75261914         3
+# 166                       vfour_t_mv_ 0.75016027         3
+# 131                     vcg_av3_t_mv_ 0.74965350         3
+#The *func_correlation * function can be used here to return the predictors that are highly correlated with the response
+
+
+#---------------------------------------------- END---------------
+# correlation of variables
+# After the important features of each algorithm are returned, a next step could be to observe if the top features are correlated with the response and how each algorithm treated correlated predictors during feature selection.
+# 
+# The *func_correlation * function can be used here to return the predictors that are highly correlated with the response
+dat = data.frame(p = ty, tx)
+dat
+cor_feat = func_correlation(dat, target = 'p', correlation_thresh = 0.1, use_obs = 'complete.obs', correlation_method = 'pearson')
+
+head(cor_feat)
+#2
+df <- as.data.frame(df)
+df_mat <- model.matrix(fbc~. , -351, data=df )
+df_mat$level
+y <- as.matrix(df[, 351])
+dat = data.frame(p = y, df_mat)
+dat
+cor_feat = func_correlation(dat, target = 'p', correlation_thresh = 0.1, use_obs = 'complete.obs', correlation_method = 'pearson')
+
+head(cor_feat)
+out_lst = lapply(feat1$all_feat, function(x) which(rownames(cor_feat) %in% x[1:100, 1]))
+# levelMP                          0.2539433
+# sfbc_b32wlsaup_drpost_pcs_       0.2228974
+# vth_sgs_med_mv_                  0.1835762
+# cycling                          0.1816177
+# sfbc_t32wlsalp_far_dc_fresh_pcs_ 0.1591526
+# vth_wlds0last_l3s_mv_            0.1455502
+df$level
+str(out_lst)
+# List of 3
+# $ glmnet-lasso: int [1:4] 1 3 6 12
+# $ xgboost     : int [1:14] 1 2 3 4 5 6 7 8 9 10 ...
+# $ ranger      : int [1:14] 1 2 3 4 5 6 7 8 9 10 ...
+#Lets find the number of the highly correlated var on Lasso
+cor_lasso = func_correlation(tx[, feat1$all_feat$`glmnet-lasso`[, 1]], target = NULL, correlation_thresh = 0.9, 
+                             
+                             use_obs = 'complete.obs', correlation_method = 'pearson')
+
+head(cor_lasso$out_df)
+dim(cor_lasso$out_df)[1]
+
+cor_xgb = func_correlation(tx[, feat1$all_feat$xgboost[, 1][1:100]], target = NULL, correlation_thresh = 0.9, 
+                           
+                           use_obs = 'complete.obs', correlation_method = 'pearson')
+
+head(cor_xgb$out_df)
+dim(cor_xgb$out_df)[1]   # no cocelation between
+
+cor_rf = func_correlation(tx[, feat1$all_feat$ranger[, 1][1:100]], target = NULL, correlation_thresh = 0.9,
+                          
+                          use_obs = 'complete.obs', correlation_method = 'pearson')
+
+
+ head(cor_rf$out_df)
+
+
+ 
+ 
+ 
+ 
+ res_n = feature_selection(X_n, y_n, method = 'glmnet-lasso', params_glmnet = params_glmnet, CV_folds = 5, cores_glmnet = 5)
+
+# binary classification
+
+# data(iris)
+# y = iris[, 5]
+# y = as.character(y)
+y[y == 'fbc'] = 'fbc'
+# X = iris[, -5]
+
+params_ranger = list(write.forest = TRUE, probability = TRUE, num.threads = 6, num.trees = 50, verbose = FALSE, classification = TRUE, mtry = 2, min.node.size = 5, importance = 'impurity')
+
+res_s = feature_selection(tx, ty, method = 'ranger', params_ranger = params_ranger, CV_folds = 5)
+
+
+# multiclass classification
+
+
+# data(iris)
+# y = iris[, 5]
+#y[y == 'fbc'] = 'fbc'
+y = df[, 351]
+tx <- train[,-c(351)]
+multiclass_xgboost = ifelse(y == 'fbc', 0, ifelse(y == 'fbc', 1, 2))
+# X = iris[, -5]
+
+params_xgboost = list( params = list("objective" = "multi:softprob", "bst:eta" = 0.35, "subsample" = 0.65, "num_class" = 3, "max_depth" = 6, "colsample_bytree" = 0.65, "nthread" = 2),
+                       nrounds = 50, print.every.n = 50, verbose = 0, maximize = FALSE)
+
+res_xgboost = feature_selection(X_n, y_n, multiclass_xgboost, method = 'xgboost', params_xgboost = params_xgboost, CV_folds = 5)
+
+#start.time <- Sys.time()
+
+#code
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+# Percentage of vriance explaned
+af <- anova(fit)
+afss <- af$"Sum Sq"
+print(cbind(af,PctExp=afss/sum(afss)*100))
+
+
+
+
+####--------------------------    GLM based on the Union of Ensemble Learning  pded1-----------------------------
+# try to make subset of variables picked by Lasso pred1 
+# vector of columns you DON'T want
+aaa <- read.csv("Union_feat_10fold_1004.csv")
+aaa$feature.importance.Frequency
+
+v <- c( "levelMP",
+       "vf_sk_mv_",
+       "vth_sgs_med_mv_",
+       "sde_pmp_vm_s_dac_",
+       "vth_wlds0last_l3s_mv_",
+       "tlcwc_we0_wl0_fr_s25_f2g_pcs_",
+       "sfbc_b32wlsaup_drpost_pcs_",
+       "icca_add00_ua_",
+       "tlcwc_we0_wl31_fr_s25_f2g_pcs_",
+       "crd_m1bll_224_c_pcs_",
+       "cycling",
+       "sfbc_t32wlsalp_far_dc_fresh_pcs_",
+       "tproga2slcrand_us_",
+       "fbc_sdllk4_pcs_",
+       "sfbc_t32wlsaerx_far_fresh_pcs_",
+       "sfbc_t32wlsalp_drpost_pcs_",
+       "sfbc_t32wlsalp_far_fresh_pcs_",
+       "tpor_us_",
+       "vth_sgd_med_mv_",
+       "bbk_high_wldd0_ev_d_pcs_",
+       "vth_wlds1_med_mv_",
+       "tem",
+       "tlcwc_we0_wl63_fr_s25_a2r_pcs_",
+       "sfbc_t32wlsaerx_dc_lijl2_pcs_",
+       "sfbc_slcerslp_20kpost_pcs_",
+       "vcg_gv3_t_mv_",
+       "vth_wlds0_win_mv_",
+       "wlleak_each_value_34_na_",
+       "sfbc_slcerslp_7kpost_pcs_",
+       "vfour_t_mv_") 
+
+v %>% str
+# subset of all data with selected  30 veriables
+# need to convert level to the 3 col with binary 
+df_m <- df
+df_l <- model.matrix(~df$level-1, data=df$level)
+df_l 
+df_m <- cbind(df_m, df_l)
+df_m %>% names
+df_m <- df_m[, -353]
+#df_m$levelMP <- rename(df_m$`df$levelMP`)
+colnames(df_m)[353] <- "levelLP" 
+colnames(df_m)[354] <- "levelMP"
+colnames(df_m)[355] <- "levelUP"
+
+
+un <- df_m %>% select(v)
+un %>% dim
+un %>% names
+
+#un <- na.omit(un)
+# add responce 
+df$fbc
+un$fbc <-df$fbc
+un
+
+write.csv(un, "CrossTemp_XGB_Ranger_LASSO_subset.csv")
+
+# Linear model without standardizing predictors
+lmod_un <- lm(fbc~., un)
+lmod_un
+summary(lmod_un)
+lmod_s <-lmod_un %>% summary
+capture.output(lmod_summary, file = "Union_model_crosstemp_lassosubset.txt")
+
+plot(lmod_un,  main = " Statistics of union of models")
+
+# Linear model with standardizing predictors
+un %>% dim
+
+# standartization
+un_st <- lapply(un, scale)
+st_lmod_un <- lm(fbc~., un_st)
+st_lmod_un %>% summary
+plot(st_lmod_un)
+
+
+
+# modelformula <- fbc~ levelMP+ vf_sk_mv_+
+#   vth_sgs_med_mv_+
+#   sde_pmp_vm_s_dac_+
+#   vth_wlds0last_l3s_mv_+
+#   tlcwc_we0_wl0_fr_s25_f2g_pcs_+
+#   sfbc_b32wlsaup_drpost_pcs_+
+#   icca_add00_ua_+
+#   tlcwc_we0_wl31_fr_s25_f2g_pcs_+
+#   crd_m1bll_224_c_pcs_+
+#   cycling+
+#   sfbc_t32wlsalp_far_dc_fresh_pcs_+
+#   tproga2slcrand_us_+
+#   fbc_sdllk4_pcs_+
+#   sfbc_t32wlsaerx_far_fresh_pcs_+
+#   sfbc_t32wlsalp_drpost_pcs_+
+#   sfbc_t32wlsalp_far_fresh_pcs_+
+#   tpor_us_+
+#   vth_sgd_med_mv_+
+#   bbk_high_wldd0_ev_d_pcs_+
+#   vth_wlds1_med_mv_+
+#   tem+
+#   tlcwc_we0_wl63_fr_s25_a2r_pcs_+
+#   sfbc_t32wlsaerx_dc_lijl2_pcs_+
+#   sfbc_slcerslp_20kpost_pcs_+
+#   vcg_gv3_t_mv_+
+#   vth_wlds0_win_mv_+
+#   wlleak_each_value_34_na_+
+#   sfbc_slcerslp_7kpost_pcs_+
+#   vfour_t_mv_ 
+# 
+# all.vars(modelformula)
+# st_lmod_un <- lapply(un[, all.vars(modelformula)], scale)
+# 
+# un <- as.numeric(un)
+# # this is
+ st_un <- un %>% mutate_all(funs(scale), all.vars(modelformula ))
+ 
+ # Percentage of vriance explaned
+ af <- anova(st_lmod_un)
+ afss <- af$"Sum Sq"
+ print(cbind(af,PctExp=afss/sum(afss)*100))
+ # Df                                       Sum Sq      Mean Sq      F value        Pr(>F)       PctExp
+ # levelMP                              1 1.167864e+03 1.167864e+03 3.301053e+03  0.000000e+00 6.448722e+00
+ # vf_sk_mv_                            1 1.605977e+02 1.605977e+02 4.539413e+02  1.670637e-99 8.867902e-01
+ # vth_sgs_med_mv_                      1 5.935570e+02 5.935570e+02 1.677733e+03  0.000000e+00 3.277509e+00
+ # sde_pmp_vm_s_dac_                    1 3.413769e+00 3.413769e+00 9.649269e+00  1.897201e-03 1.885019e-02
+ # vth_wlds0last_l3s_mv_                1 7.220460e+01 7.220460e+01 2.040916e+02  4.760927e-46 3.987002e-01
+ # tlcwc_we0_wl0_fr_s25_f2g_pcs_        1 2.138191e+01 2.138191e+01 6.043755e+01  8.000807e-15 1.180669e-01
+ # sfbc_b32wlsaup_drpost_pcs_           1 3.532823e+02 3.532823e+02 9.985785e+02 2.245406e-213 1.950758e+00
+ # icca_add00_ua_                       1 3.571982e+00 3.571982e+00 1.009647e+01  1.488033e-03 1.972381e-02
+ # tlcwc_we0_wl31_fr_s25_f2g_pcs_       1 3.905068e+01 3.905068e+01 1.103796e+02  9.598342e-26 2.156305e-01
+ # crd_m1bll_224_c_pcs_                 1 1.704053e+00 1.704053e+00 4.816632e+00  2.819903e-02 9.409460e-03
+ # cycling                              1 5.994045e+02 5.994045e+02 1.694261e+03  0.000000e+00 3.309798e+00
+ # sfbc_t32wlsalp_far_dc_fresh_pcs_     1 7.208608e+01 7.208608e+01 2.037566e+02  5.623051e-46 3.980457e-01
+ # tproga2slcrand_us_                   1 3.484666e-01 3.484666e-01 9.849667e-01  3.209890e-01 1.924167e-03
+ # fbc_sdllk4_pcs_                      1 1.094814e+02 1.094814e+02 3.094574e+02  1.070807e-68 6.045358e-01
+ # sfbc_t32wlsaerx_far_fresh_pcs_       1 1.459919e+01 1.459919e+01 4.126570e+01  1.361949e-10 8.061399e-02
+ # sfbc_t32wlsalp_drpost_pcs_           1 1.132197e+00 1.132197e+00 3.200238e+00  7.364427e-02 6.251778e-03
+ # sfbc_t32wlsalp_far_fresh_pcs_        1 2.386382e+01 2.386382e+01 6.745285e+01  2.301883e-16 1.317715e-01
+ # tpor_us_                             1 3.902079e+01 3.902079e+01 1.102951e+02  1.001373e-25 2.154654e-01
+ # vth_sgd_med_mv_                      1 5.520178e+00 5.520178e+00 1.560319e+01  7.841898e-05 3.048138e-02
+ # bbk_high_wldd0_ev_d_pcs_             1 2.895501e+00 2.895501e+00 8.184348e+00  4.230179e-03 1.598841e-02
+ # vth_wlds1_med_mv_                    1 1.052280e+01 1.052280e+01 2.974348e+01  4.996309e-08 5.810493e-02
+ # tem                                  1 8.397129e+03 8.397129e+03 2.373510e+04  0.000000e+00 4.636736e+01
+ # tlcwc_we0_wl63_fr_s25_a2r_pcs_       1 5.217557e-01 5.217557e-01 1.474781e+00  2.246087e-01 2.881036e-03
+ # sfbc_t32wlsaerx_dc_lijl2_pcs_        1 1.451503e+00 1.451503e+00 4.102779e+00  4.282744e-02 8.014923e-03
+ # sfbc_slcerslp_20kpost_pcs_           1 1.746275e-02 1.746275e-02 4.935976e-02  8.241836e-01 9.642602e-05
+ # vcg_gv3_t_mv_                        1 7.024031e+00 7.024031e+00 1.985394e+01  8.409199e-06 3.878537e-02
+ # vth_wlds0_win_mv_                    1 4.745610e-01 4.745610e-01 1.341382e+00  2.468057e-01 2.620436e-03
+ # wlleak_each_value_34_na_             1 7.752983e-01 7.752983e-01 2.191438e+00  1.387971e-01 4.281051e-03
+ # sfbc_slcerslp_7kpost_pcs_            1 1.058168e+01 1.058168e+01 2.990991e+01  4.585944e-08 5.843006e-02
+ # vfour_t_mv_                          1 8.630045e-02 8.630045e-02 2.439346e-01  6.213847e-01 4.765348e-04
+ # Residuals                        18080 6.396436e+03 3.537852e-01           NA            NA 3.531991e+01
+ 
+ 
+ 
+ ## Work just with Lasso from ensemble learning
+ 
+ L <- as.matrix(feat$all_feat$`glmnet-lasso`)
+ L
+ num_L<-feat$all_feat$`glmnet-lasso`[1:30, 1]
+ num_L
+ subset_Lasso_Ensemble<-df_m %>% select(num_L)
+ subset_Lasso_Ensemble$fbc <- df$fbc
+ 
+ # Linear model without standardizing predictors
+ lmod_Lasso <- lm(fbc~., subset_Lasso_Ensemble)
+ lmod_Lasso
+ summary(lmod_Lasso)
+ SummaryLasso <-lmod_Lasso %>% summary
+ capture.output(SummaryLasso, file = "Lasso_model_crosstemp_lassosubset30.txt")
+ # 
+ # Call:
+ #   lm(formula = fbc ~ ., data = subset_Lasso_Ensemble)
+ # 
+ # Residuals:
+ #   Min      1Q  Median      3Q     Max 
+ # -4.7265 -0.7739  0.4035  0.9912  1.8528 
+ # 
+ # Coefficients:
+ #   Estimate Std. Error t value Pr(>|t|)    
+ # (Intercept)                    29.4787183  5.9089544   4.989 6.13e-07 ***
+ #   levelMP                         0.8461039  0.0232766  36.350  < 2e-16 ***
+ #   vera_mlc_rate__                 0.8830700  0.3444438   2.564 0.010363 *  
+ #   levelUP                         0.2428020  0.0232717  10.433  < 2e-16 ***
+ #   sde_pmp_vm_s_dac_               0.1930117  0.0169706  11.373  < 2e-16 ***
+ #   crd_scrnslcbot_p_               0.0640621  0.0125094   5.121 3.07e-07 ***
+ #   vpgmu_bwl_s_dac_               -0.0016306  0.0098318  -0.166 0.868277    
+ # vcgrvstep_s_dac_                0.0128610  0.0141673   0.908 0.363998    
+ # frlt_vcgrsft_er3_pcs_           0.0136838  0.0097107   1.409 0.158810    
+ # treadm_us_                     -0.0158801  0.0170570  -0.931 0.351865    
+ # tmps_trim_bgr_s_dac_            0.0344452  0.0169879   2.028 0.042612 *  
+ #   bbk_sgsld_1_d_pcs_              0.0426653  0.0047879   8.911  < 2e-16 ***
+ #   crd_blleak1_p_                  0.0232348  0.0098823   2.351 0.018726 *  
+ #   layer3_vpgms_s_dac_             0.0342110  0.0087944   3.890 0.000101 ***
+ #   crd_ddbll_slc1_p_              -0.0081577  0.0083601  -0.976 0.329179    
+ # vcg_av3_t_mv_                   0.0124594  0.0020975   5.940 2.90e-09 ***
+ #   tlcwc_we0_wl63_fr_s25_a2r_pcs_ -0.0116800  0.0020396  -5.727 1.04e-08 ***
+ #   vcg_dv3_t_mv_                  -0.0045007  0.0022418  -2.008 0.044699 *  
+ #   vcelsrct_p_                     0.0026157  0.0014453   1.810 0.070331 .  
+ # vcg_er3_t_mv_                  -0.0056887  0.0023207  -2.451 0.014242 *  
+ #   wlleak_each_value_37_na_        0.0013922  0.0009219   1.510 0.131007    
+ # halfvccq18_t_mv_               -0.0001861  0.0012533  -0.148 0.881966    
+ # iref_s_dac_                     0.0099852  0.0050285   1.986 0.047080 *  
+ #   tproga2slcrand_us_              0.0031694  0.0008677   3.653 0.000260 ***
+ #   wlleak_post_50_na_              0.0023991  0.0008598   2.790 0.005272 ** 
+ #   wlleak_each_value_34_na_       -0.0040873  0.0009645  -4.238 2.27e-05 ***
+ #   wlleak_post_51_na_              0.0010789  0.0009336   1.156 0.247843    
+ # bbk_mlcread2_d_pcs_            -0.0261036  0.0041691  -6.261 3.91e-10 ***
+ #   wlleak_post_30_na_             -0.0029070  0.0009169  -3.170 0.001525 ** 
+ #   wlleak_each_value_11_na_       -0.0007307  0.0008617  -0.848 0.396484    
+ # wlleak_post_29_na_             -0.0001619  0.0009099  -0.178 0.858749    
+ # ---
+ #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+ # 
+ # Residual standard error: 1.279 on 18080 degrees of freedom
+ # Multiple R-squared:  0.09713,	Adjusted R-squared:  0.09563 
+ # F-statistic: 64.83 on 30 and 18080 DF,  p-value: < 2.2e-16
+ 
+ plot(lmod_Lasso,  main = " Statistics of Lasso from Ensemble of models")
+ 
+ # Linear model with standardizing predictors
+ subset_Lasso_Ensemble %>% dim
+ #[1] 18111    31
+ # standartization did not change absolutly anything coz it was standurduzed during precidure od Lasso model
+ st_subset_Lasso_Ensemble <- lapply(subset_Lasso_Ensemble, scale)
+ st_lmod_subset_Lasso_Ensemble <- lm(fbc~.,  st_subset_Lasso_Ensemble)
+ st_lmod_subset_Lasso_Ensemble %>% summary
+ #.....
+ # Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+ # 
+ # Residual standard error: 1.279 on 18080 degrees of freedom
+ # Multiple R-squared:  0.09713,	Adjusted R-squared:  0.09563 
+ # F-statistic: 64.83 on 30 and 18080 DF,  p-value: < 2.2e-16
+ 
+ plot(st_lmod_subset_Lasso_Ensemble)
+
+  ## final Solution with plotting
+ pred<-predict(object=,newdata=test)
+ actual<-test$price
+ result<-data.frame(actual=actual,predicted=pred)
+ paste('Function Call: ', model1$call)
+ 
+ 
