@@ -1,3 +1,6 @@
+#this script is my resurch and just my practicing with data modeling
+# data not exist anymore
+
 library(glmnet)
 library(dplyr)
 library(plyr)
