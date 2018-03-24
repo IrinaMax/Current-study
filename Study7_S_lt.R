@@ -1,6 +1,6 @@
 # This script mean nothing, its my dirty work 
 #new data of FBC try to fit parametrs with slop
-##   -----LTPD work with diequal_lonf_format (partitons) ['BICS3_256G_D3','DAT6-EXTENDED-MLC','MLC','HTPD-HTCYC_EP25C_2P55VCC-T1_R25C']
+##   
 
 # The code for DQ data, to fit linear regression for every die
 library(glmnet)
