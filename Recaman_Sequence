@@ -1,0 +1,41 @@
+recaman <- function(n, s=c()) {
+  a <- 0
+## basic in R
+
+  if (n > 0) {
+    val <- recaman(n - 1, s)
+    
+    a <- val$a
+    s <- c(val$s, a)
+
+    an1 <- a - n
+    
+    if (an1 > -1 && !(an1 %in% s)) {
+      # If not in sequence.
+      a <- an1
+    }
+    else {
+      # If in sequence.
+      a <- a + n
+    }
+  }
+
+  list(a=a, s=c(s, a))
+}
+
+# Visualization
+library(ggplot2)
+
+data <- as.data.frame(sapply(1:100, function(a) { recaman(a)$a }))
+names(data) <- c('y')
+data$x <- as.numeric(row.names(data))
+
+g <- ggplot(data, aes(x=x, y=y, color=y))
+g <- g + geom_point(size=2, shape=16)
+g <- g + labs(title='Recman Sequence', x='Sequence #', y='Value')
+g <- g + scale_color_gradient(low='purple', high='pink')
+g <- g + theme(legend.position="none")
+g <- g + scale_x_continuous(breaks=c(seq(from=1, to=nrow(data), by=nrow(data)/20), nrow(data)))
+print(g)
+
+#for (i in 1:100) print(recaman(i)$a)
