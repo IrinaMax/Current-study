@@ -1,3 +1,13 @@
+[nth number of Recamán's Sequence] - Recamán's Sequence is defined as "a(0) = 0; for n > 0, a(n) = a(n-1) - n if positive and not already in the sequence, otherwise a(n) = a(n-1) + n." (Note: See this article for clarification if you are confused).
+
+Given: a positive integer n.
+
+Output: the nth digit of the sequence.
+
+Special: To make this problem more interesting, either golf your code, or use an esoteric programming language (or double bonus points for doing both).
+
+Challenge input: [5, 15, 25, 100, 1005]
+
 recaman <- function(n, s=c()) {
   a <- 0
 ## basic in R
