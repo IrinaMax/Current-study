@@ -502,4 +502,200 @@ Selecting by  n
 > class(computed)
 [1] "tbl_spark" "tbl_sql"   "tbl_lazy"  "tbl"
 
-# Groups: great for music, great for data
+# Groups: great for music, great for data ---------summarize() works with grouped tibbles, and as you'll see next, so does mutate()
+> duration_by_artist <- track_metadata_tbl %>%
+    # Group by artist
+    group_by(artist_name) %>%
+    # Calc mean duration
+    mutate(mean_duration = mean(duration))
+> 
+> duration_by_artist %>%
+    # Sort by ascending mean duration
+    arrange(mean_duration)
+# Source:     lazy query [?? x 12]
+# Database:   spark_connection
+# Groups:     artist_name
+# Ordered by: mean_duration
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRUTWVV~ Get ~ SOJLQI~ VYP - ~ ARWC1XH1~ 194e87c9-b~ Lil Mama        11.5
+ 2 TRTYRTU~ Rela~ SOJYWS~ Bird A~ AREMX2T1~ eae383bc-4~ Charlie Pa~     25.1
+ 3 TRFOYSX~ Luke~ SODGDS~ The Am~ ARPDDNW1~ c266a7ab-7~ DJ Yoda         32.4
+ 4 TRQRITN~ Cikl~ SONRGW~ Let 3 ~ ARIHVRZ1~ 443dfd6c-3~ Let 3           33.1
+ 5 TRLLBQO~ As A~ SOXSUM~ Warner~ AREDRYV1~ 6840dcbe-3~ Secos And ~     56.9
+ 6 TRBUUZO~ Thre~ SOHFJG~ Stoned~ AR8SRQ31~ 73faa89a-e~ Ten Years ~     58.7
+ 7 TRRHQFT~ Wino~ SOBAME~ Spiral~ ARMEQ971~ 8bf5abde-8~ Ralph McTe~     60.5
+ 8 TRXYPUK~ (How~ SOGVNA~ The Th~ ARTJ1WP1~ 6a22414d-1~ Le Loup         61.4
+ 9 TRSECNY~ Bugz~ SOSNUM~ D-12 W~ AREJ4S91~ 9ab19acf-0~ D-12            65.4
+10 TRGTSRF~ I Lo~ SONFOR~ Wowee ~ ARVFF0Y1~ 36bfa85f-7~ Pavement        70.8
+# ... with 990 more rows, and 4 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>, mean_duration <dbl>
+> 
+> duration_by_artist %>%
+    # Sort by descending mean duration
+    arrange(desc(mean_duration))
+# Source:     lazy query [?? x 12]
+# Database:   spark_connection
+# Groups:     artist_name
+# Ordered by: desc(mean_duration)
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRXSIOZ~ Medi~ SOVGJC~ Right ~ ARJ6VQ21~ f3b8e107-a~ Charles Mi~    1423.
+ 2 TRYYMQH~ Love~ SOHATH~ Vanity  ARV1ALU1~ 26cc84a4-a~ Eighteen V~     814.
+ 3 TRNOBJE~ East~ SOZIDQ~ East-W~ ARHWVGW1~ 20dcf3aa-c~ The Paul B~     792.
+ 4 TREXTHU~ Groo~ SOHDOP~ Art Pe~ AR15R2V1~ 266b9126-4~ Art Pepper      752.
+ 5 TRWVLKE~ Colo~ SOXVEZ~ Rebirt~ AR8KLL91~ 21c37b55-f~ Blonde On ~     723.
+ 6 TRTDSTI~ Omeg~ SOKPFS~ Live I~ ARYXELS1~ b2dcc67a-4~ Albert Ayl~     647.
+ 7 TRQVOPL~ High~ SOWZSF~ Electr~ ARBVSLV1~ c26cc89a-c~ Heights Of~     632.
+ 8 TRKQSYS~ Cali~ SOBQNR~ 70TH B~ ARPUBU61~ 18c1e06b-f~ John Mayall     930.
+ 9 TRQJXBK~ Room~ SOLAYL~ Turnin~ ARPUBU61~ 18c1e06b-f~ John Mayall     306.
+10 TRWUPWC~ It M~ SOJIGE~ Roberta ARQ95WI1~ 5298bbcb-7~ Roberta Fl~     602.
+# ... with 990 more rows, and 4 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>, mean_duration <dbl>
+> # track_metadata_tbl has been pre-defined
+> track_metadata_tbl
+# Source:   table<track_metadata> [?? x 11]
+# Database: spark_connection
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRSTWXA~ The ~ SOCQMX~ Espana  ARNNU4G1~ 5c176092-c~ 101 Strings     221.
+ 2 TRQNQZX~ Soul~ SOWULX~ Diary ~ ARJ9DSA1~ 4756395c-5~ John Mayal~     368.
+ 3 TRTPVEB~ The ~ SOHKYI~ The Bl~ ARQ8CJ61~ 15ab8bb8-7~ Illinois J~     329.
+ 4 TRZZNFB~ The ~ SOJVHK~ Give M~ ARFAKTH1~ 0174d942-3~ Chairmen O~     193.
+ 5 TRZAAWN~ Litt~ SORYVB~ Beauti~ ARNMWP51~ 4dca4bb2-2~ Curtis May~     321.
+ 6 TRRAOAD~ Will~ SODTBY~ Jammys~ ARMDWND1~ 8ee00333-e~ Black Uhuru     179.
+ 7 TRPGBAO~ Chil~ SOCTEW~ Pure A~ ARBSLZ11~ f940c4dd-f~ Alex de Gr~     162.
+ 8 TRQLTYD~ Ring~ SONNCT~ Eat To~ ARM7YQQ1~ 4d2956d1-a~ Blondie         210.
+ 9 TRJNORS~ Chat~ SOGQHH~ Sid Si~ ARBK4PS1~ 637504e3-b~ Sid Vicious     111.
+10 TRLSQUC~ Migh~ SOTFGI~ Rockin~ ARRHNLN1~ d86c3c8b-8~ Jelly Roll~     242.
+# ... with 990 more rows, and 3 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>
+> 
+> duration_by_artist <- track_metadata_tbl %>%
+    # Group by artist
+    group_by(artist_name) %>%
+    # Calc mean duration
+    mutate(mean_duration = mean(duration))
+> 
+> duration_by_artist %>%
+    # Sort by ascending mean duration
+    arrange(mean_duration)
+# Source:     lazy query [?? x 12]
+# Database:   spark_connection
+# Groups:     artist_name
+# Ordered by: mean_duration
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRUTWVV~ Get ~ SOJLQI~ VYP - ~ ARWC1XH1~ 194e87c9-b~ Lil Mama        11.5
+ 2 TRTYRTU~ Rela~ SOJYWS~ Bird A~ AREMX2T1~ eae383bc-4~ Charlie Pa~     25.1
+ 3 TRFOYSX~ Luke~ SODGDS~ The Am~ ARPDDNW1~ c266a7ab-7~ DJ Yoda         32.4
+ 4 TRQRITN~ Cikl~ SONRGW~ Let 3 ~ ARIHVRZ1~ 443dfd6c-3~ Let 3           33.1
+ 5 TRLLBQO~ As A~ SOXSUM~ Warner~ AREDRYV1~ 6840dcbe-3~ Secos And ~     56.9
+ 6 TRBUUZO~ Thre~ SOHFJG~ Stoned~ AR8SRQ31~ 73faa89a-e~ Ten Years ~     58.7
+ 7 TRRHQFT~ Wino~ SOBAME~ Spiral~ ARMEQ971~ 8bf5abde-8~ Ralph McTe~     60.5
+ 8 TRXYPUK~ (How~ SOGVNA~ The Th~ ARTJ1WP1~ 6a22414d-1~ Le Loup         61.4
+ 9 TRSECNY~ Bugz~ SOSNUM~ D-12 W~ AREJ4S91~ 9ab19acf-0~ D-12            65.4
+10 TRGTSRF~ I Lo~ SONFOR~ Wowee ~ ARVFF0Y1~ 36bfa85f-7~ Pavement        70.8
+# ... with 990 more rows, and 4 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>, mean_duration <dbl>
+> 
+> duration_by_artist %>%
+    # Sort by descending mean duration
+    arrange(desc(mean_duration))
+# Source:     lazy query [?? x 12]
+# Database:   spark_connection
+# Groups:     artist_name
+# Ordered by: desc(mean_duration)
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRXSIOZ~ Medi~ SOVGJC~ Right ~ ARJ6VQ21~ f3b8e107-a~ Charles Mi~    1423.
+ 2 TRYYMQH~ Love~ SOHATH~ Vanity  ARV1ALU1~ 26cc84a4-a~ Eighteen V~     814.
+ 3 TRNOBJE~ East~ SOZIDQ~ East-W~ ARHWVGW1~ 20dcf3aa-c~ The Paul B~     792.
+ 4 TREXTHU~ Groo~ SOHDOP~ Art Pe~ AR15R2V1~ 266b9126-4~ Art Pepper      752.
+ 5 TRWVLKE~ Colo~ SOXVEZ~ Rebirt~ AR8KLL91~ 21c37b55-f~ Blonde On ~     723.
+ 6 TRTDSTI~ Omeg~ SOKPFS~ Live I~ ARYXELS1~ b2dcc67a-4~ Albert Ayl~     647.
+ 7 TRQVOPL~ High~ SOWZSF~ Electr~ ARBVSLV1~ c26cc89a-c~ Heights Of~     632.
+ 8 TRKQSYS~ Cali~ SOBQNR~ 70TH B~ ARPUBU61~ 18c1e06b-f~ John Mayall     930.
+ 9 TRQJXBK~ Room~ SOLAYL~ Turnin~ ARPUBU61~ 18c1e06b-f~ John Mayall     306.
+10 TRWUPWC~ It M~ SOJIGE~ Roberta ARQ95WI1~ 5298bbcb-7~ Roberta Fl~     602.
+# ... with 990 more rows, and 4 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>, mean_duration <dbl>
+
+#-----------Groups of mutants-------------------mutate() and summarize() are commonly paired with group_by()
+track_metadata_tbl %>%
+    # Group by artist
+    group_by(artist_name) %>%
+    # Calc time since first release
+    mutate(time_since_first_release = year -min(year)) %>%
+    # Arrange by descending time since first release
+    arrange(desc(time_since_first_release))
+# Source:     lazy query [?? x 12]
+# Database:   spark_connection
+# Groups:     artist_name
+# Ordered by: desc(time_since_first_release)
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TROGYEE~ Okie~ SOGNFI~ No Noi~ AR47XGG1~ c7356af9-9~ Charlie Pa~    184. 
+ 2 TRUPFJK~ How ~ SOSABQ~ Nazz V~ ARYWCFZ1~ ""          Nazz           232. 
+ 3 TRODYBQ~ Love~ SOHESH~ Sonny ~ AR6Q4T91~ 3b47247e-5~ Sonny Roll~    181. 
+ 4 TRXOPBM~ Shin~ SOCFMM~ Unmete~ ARMDWND1~ 8ee00333-e~ Black Uhuru    199. 
+ 5 TRIETJC~ Ring~ SOOGYV~ 20th C~ ARKFXJJ1~ e9d7f684-d~ Sam The Sh~    149. 
+ 6 TRUTXMQ~ 1950~ SOBXPK~ Tampa ~ AR576O51~ 1b62df85-0~ Tampa Red      198. 
+ 7 TRIPULZ~ Worl~ SOCRKF~ More C~ ARV2G141~ 6aa4bb26-3~ Noel Coward    180. 
+ 8 TRNNIXO~ New ~ SOBDII~ Tampa ~ AR576O51~ 1b62df85-0~ Tampa Red      200. 
+ 9 TROZDLU~ What~ SOCQOH~ Ramble~ ARDNQ0R1~ dbfd61ef-f~ Lonnie Joh~    169. 
+10 TRNNRUD~ Intro SOWIDV~ Dio's ~ AR65HBF1~ c55193fb-f~ Dio             97.0
+# ... with 990 more rows, and 4 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>, time_since_first_release <int>
+> 
+
+> # Write SQL query
+> query <- "SELECT * FROM track_metadata WHERE year < 1935 AND duration > 300"
+> 
+> # Run the query
+> (results <- dbGetQuery(spark_conn, query))
+            track_id              title            song_id              release
+1 TRCYBTD12903CF37BD Devil Got My Woman SOFYCVA12A58A77D38 Vanguard Visionaries
+           artist_id                          artist_mbid artist_name duration
+1 ARL99WU1187B98FB1F f205743d-4441-471d-a3af-66f584738e29  Skip James 312.3979
+  artist_familiarity artist_hotttnesss year
+1          0.6236982         0.4217952 1931
+> 
+#
+# Left join artist terms to track metadata by artist_id
+> joined <- left_join(track_metadata_tbl, artist_terms_tbl, by = "artist_id")
+> 
+> # How many rows and columns are in the joined table?
+> dim(joined)
+[1] 33509    12
+
+> # Anti join artist terms to track metadata by artist_id 
+> joined <- anti_join(track_metadata_tbl, artist_terms_tbl, by = "artist_id")
+> 
+> # How many rows and columns are in the joined table?
+> dim(joined)
+[1]  2 11
+
+# Semi join artist terms to track metadata by artist_id
+> joined <- semi_join(track_metadata_tbl, artist_terms_tbl, by = "artist_id") 
+> # How many rows and columns are in the joined table?
+> dim(joined)
+[1] 998  11
+
+# Transforming continuous variables to logical----------------------------------------------
+> hotttnesss <- track_metadata_tbl %>%
+    # Select artist_hotttnesss
+    select(artist_hotttnesss ) %>%
+    # Binarize to is_hottt_or_nottt
+    ft_binarizer("artist_hotttnesss","is_hottt_or_nottt", threshold = 0.5 ) %>%
+    # Collect the result
+    collect() %>%
+    # Convert is_hottt_or_nottt to logical
+    mutate(is_hottt_or_nottt = as.logical(is_hottt_or_nottt))
+> 
+> # Draw a barplot of is_hottt_or_nottt
+> ggplot(hotttnesss, aes(is_hottt_or_nottt)) +
+    geom_bar()
+> 
+> 
+# Transforming continuous variables into categorical (1)--------------------------------------
