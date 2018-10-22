@@ -1,0 +1,314 @@
+Spark R
+> # Load sparklyr
+> library(sparklyr)
+> 
+> # Connect to your Spark cluster
+> spark_conn <- spark_connect(master = "local")
+> 
+> # Print the version of Spark
+> spark_version(sc = spark_conn)
+[1] '2.1.0'
+> 
+> # Disconnect from Spark
+> spark_disconnect(sc = spark_conn)
+
+> # Load dplyr
+> library(sparklyr)
+> 
+> # Explore track_metadata structure
+> str(track_metadata)
+Classes 'tbl_df', 'tbl' and 'data.frame':	1000 obs. of  11 variables:
+ $ track_id          : chr  "TRDVOZX128F93283A3" "TRDPMEU12903CC5434" "TRJQDNJ128F426E8CE" "TRRRGCS128F4280BB6" ...
+ $ title             : chr  "Jersey Belle Blues" "Get Yourself Together" "Jersey Bull Blues" "High Fever Blues" ...
+ $ song_id           : chr  "SOKMEHX12AB0180877" "SOFCPUM12AB018A4EB" "SOKDFLC12A8C1354AE" "SONQUOG12A8C13C76F" ...
+ $ release           : chr  "Backwater Blues" "Rambler's Blues" "Complete Recordings_ CD E" "The Panama Limited" ...
+ $ artist_id         : chr  "ARDNQ0R1187B9BA1EF" "ARDNQ0R1187B9BA1EF" "ARTDUXM1187B9899ED" "ARNEL2O1187FB4421A" ...
+ $ artist_mbid       : chr  "dbfd61ef-fce1-4803-9f18-7bfdd3996508" "dbfd61ef-fce1-4803-9f18-7bfdd3996508" "c71b4f57-29da-4bf2-bccb-9dc81cd2d905" "882af819-887e-4691-a4af-b14613058942" ...
+ $ artist_name       : chr  "Lonnie Johnson" "Lonnie Johnson" "Charley Patton" "Bukka White" ...
+ $ duration          : num  178 190 193 174 192 ...
+ $ artist_familiarity: num  0.559 0.
+ Big data, tiny tibble
+ 559 0.574 0.572 0.638 ...
+ $ artist_hotttnesss : num  0.405 0.405 0.376 0.424 0.405 ...
+ $ year              : int  1940 1940 1934 1940 1931 1939 1936 1940 1935 1940 ...
+> 
+> # Connect to your Spark cluster
+> spark_conn <- spark_connect("local")
+> 
+> # Copy track_metadata to Spark
+> track_metadata_tbl <- copy_to(spark_conn,track_metadata)
+> 
+> # List the data frames available in Spark
+> src_tbls( spark_conn)
+Error: could not find function "src_tbls"
+> 
+> # Disconnect from Spark
+> spark_disconnect(sc =spark_conn)
+> 
+Big data, tiny tibble -------------------------------------------------
+# Link to the track_metadata table in Spark
+> track_metadata_tbl <- tbl(spark_conn, "track_metadata")
+> 
+> # See how big the dataset is
+> dim(track_metadata_tbl)
+[1] 1000   11
+> 
+> # See how small the tibble is
+> object_size(track_metadata_tbl)
+10.1 kB
+
+Exploring the structure of tibbles ----------------------------------------------------
+> # Print 5 rows, all columns
+> print(track_metadata_tbl, n=5, width = Inf)
+# Source:   table<track_metadata> [?? x 11]
+# Database: spark_connection
+  track_id           title                     song_id           
+  <chr>              <chr>                     <chr>             
+1 TRSTWXA12903D15238 The Breeze and I          SOCQMXH12AC468B61D
+2 TRQNQZX128F422BA2F Soul Of A Short Fat Man   SOWULXB12A6D4FC1AD
+3 TRTPVEB128F42614A6 The Galloping Latin       SOHKYIC12A8AE48D00
+4 TRZZNFB128F933E7D2 The Twelfth Of Never      SOJVHKV12AB0182669
+5 TRZAAWN128F92EAC1C Little Child Runnin' Wild SORYVBT12AB017BB45
+  release                                           artist_id         
+  <chr>                                             <chr>             
+1 Espana                                            ARNNU4G1187FB5991B
+2 Diary Of A Band Vol 1 & 2                         ARJ9DSA1187B990E00
+3 The Blues; That's Me!                             ARQ8CJ61187FB3DC9C
+4 Give Me Just A Little More Time + In Session&plus ARFAKTH1187B9B0C18
+5 Beautiful Brother - The Essential                 ARNMWP51187FB3E963
+  artist_mbid                          artist_name                     duration
+  <chr>                                <chr>                              <dbl>
+1 5c176092-cb4d-4e05-806b-1e9414f2b28c 101 Strings                         221.
+2 4756395c-57ed-4a63-afb2-01117f14dff6 John Mayall & The Bluesbreakers     368.
+3 15ab8bb8-7348-4377-ab73-b7acdad1459c Illinois Jacquet                    329.
+4 0174d942-39da-4dcd-aa48-d0f3fb4f218d Chairmen Of The Board               193.
+5 4dca4bb2-23ba-4103-97e6-5810311db33a Curtis Mayfield                     321.
+  artist_familiarity artist_hotttnesss  year
+               <dbl>             <dbl> <int>
+1              0.467             0.369  1968
+2              0.627             0.405  1968
+3              0.441             0.355  1969
+4              0.536             0.415  1970
+5              0.787             0.495  1972
+# ... with 995 more rows
+> 
+> # Examine structure of tibble
+> str(track_metadata_tbl)
+List of 2
+ $ src:List of 1
+  ..$ con:List of 11
+  .. ..$ master       : chr "local[4]"
+  .. ..$ method       : chr "shell"
+  .. ..$ app_name     : chr "sparklyr"
+  .. ..$ config       :List of 5
+  .. .. ..$ sparklyr.cores.local              : int 4
+  .. .. ..$ spark.sql.shuffle.partitions.local: int 4
+  .. .. ..$ spark.env.SPARK_LOCAL_IP.local    : chr "127.0.0.1"
+  .. .. ..$ sparklyr.csv.embedded             : chr "^1.*"
+  .. .. ..$ sparklyr.shell.driver-class-path  : chr ""
+  .. .. ..- attr(*, "config")= chr "default"
+  .. .. ..- attr(*, "file")= chr "/usr/local/lib/R/site-library/sparklyr/conf/config-template.yml"
+  .. ..$ spark_home   : chr "/home/repl/.cache/spark/spark-2.1.0-bin-hadoop2.7"
+  .. ..$ backend      :Classes 'sockconn', 'connection'  atomic [1:1] 4
+  .. .. .. ..- attr(*, "conn_id")=<externalptr> 
+  .. ..$ monitor      :Classes 'sockconn', 'connection'  atomic [1:1] 3
+  .. .. .. ..- attr(*, "conn_id")=<externalptr> 
+  .. ..$ output_file  : chr "/tmp/Rtmp5J7eJV/file16af0cd0f_spark.log"
+  .. ..$ spark_context:Classes 'spark_jobj', 'shell_jobj' <environment: 0x4a8a2f0> 
+  .. ..$ java_context :Classes 'spark_jobj', 'shell_jobj' <environment: 0x4affa90> 
+  .. ..$ hive_context :Classes 'spark_jobj', 'shell_jobj' <environment: 0x4c3b0b8> 
+  .. ..- attr(*, "class")= chr [1:3] "spark_connection" "spark_shell_connection" "DBIConnection"
+  ..- attr(*, "class")= chr [1:3] "src_spark" "src_sql" "src"
+ $ ops:List of 2
+  ..$ x   :Classes 'ident', 'character'  chr "track_metadata"
+  ..$ vars: chr [1:11] "track_id" "title" "song_id" "release" ...
+  ..- attr(*, "class")= chr [1:3] "op_base_remote" "op_base" "op"
+ - attr(*, "class")= chr [1:4] "tbl_spark" "tbl_sql" "tbl_lazy" "tbl"
+> 
+> # Examine structure of data
+> glimpse(track_metadata_tbl)
+Observations: 25
+Variables: 11
+$ track_id           <chr> "TRSTWXA12903D15238", "TRQNQZX128F422BA2F", "TRT...
+$ title              <chr> "The Breeze and I", "Soul Of A Short Fat Man", "...
+$ song_id            <chr> "SOCQMXH12AC468B61D", "SOWULXB12A6D4FC1AD", "SOH...
+$ release            <chr> "Espana", "Diary Of A Band Vol 1 & 2", "The Blue...
+$ artist_id          <chr> "ARNNU4G1187FB5991B", "ARJ9DSA1187B990E00", "ARQ...
+$ artist_mbid        <chr> "5c176092-cb4d-4e05-806b-1e9414f2b28c", "4756395...
+$ artist_name        <chr> "101 Strings", "John Mayall & The Bluesbreakers"...
+$ duration           <dbl> 221.1000, 368.1955, 329.1424, 193.2534, 320.8093...
+$ artist_familiarity <dbl> 0.4669621, 0.6268031, 0.4405487, 0.5358244, 0.78...
+$ artist_hotttnesss  <dbl> 0.3687790, 0.4052347, 0.3548943, 0.4150033, 0.49...
+$ year               <int> 1968, 1968, 1969, 1970, 1972, 1977, 1978, 1979, ...
+> 
+> # track_metadata_tbl has been pre-defined
+> track_metadata_tbl
+# Source:   table<track_metadata> [?? x 11]
+# Database: spark_connection
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRSTWXA~ The ~ SOCQMX~ Espana  ARNNU4G1~ 5c176092-c~ 101 Strings     221.
+ 2 TRQNQZX~ Soul~ SOWULX~ Diary ~ ARJ9DSA1~ 4756395c-5~ John Mayal~     368.
+ 3 TRTPVEB~ The ~ SOHKYI~ The Bl~ ARQ8CJ61~ 15ab8bb8-7~ Illinois J~     329.
+ 4 TRZZNFB~ The ~ SOJVHK~ Give M~ ARFAKTH1~ 0174d942-3~ Chairmen O~     193.
+ 5 TRZAAWN~ Litt~ SORYVB~ Beauti~ ARNMWP51~ 4dca4bb2-2~ Curtis May~     321.
+ 6 TRRAOAD~ Will~ SODTBY~ Jammys~ ARMDWND1~ 8ee00333-e~ Black Uhuru     179.
+ 7 TRPGBAO~ Chil~ SOCTEW~ Pure A~ ARBSLZ11~ f940c4dd-f~ Alex de Gr~     162.
+ 8 TRQLTYD~ Ring~ SONNCT~ Eat To~ ARM7YQQ1~ 4d2956d1-a~ Blondie         210.
+ 9 TRJNORS~ Chat~ SOGQHH~ Sid Si~ ARBK4PS1~ 637504e3-b~ Sid Vicious     111.
+10 TRLSQUC~ Migh~ SOTFGI~ Rockin~ ARRHNLN1~ d86c3c8b-8~ Jelly Roll~     242.
+# ... with 990 more rows, and 3 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>
+> 
+> # Manipulate the track metadata
+> track_metadata_tbl %>%
+    # Select columns
+    select(artist_name, release, title, year)
+# Source:   lazy query [?? x 4]
+# Database: spark_connection
+   artist_name          release                    title                   year
+   <chr>                <chr>                      <chr>                  <int>
+ 1 101 Strings          Espana                     The Breeze and I        1968
+ 2 John Mayall & The B~ Diary Of A Band Vol 1 & 2  Soul Of A Short Fat M~  1968
+ 3 Illinois Jacquet     The Blues; That's Me!      The Galloping Latin     1969
+ 4 Chairmen Of The Boa~ Give Me Just A Little Mor~ The Twelfth Of Never    1970
+ 5 Curtis Mayfield      Beautiful Brother - The E~ Little Child Runnin' ~  1972
+ 6 Black Uhuru          Jammys From The Roots [19~ Willow Tree             1977
+ 7 Alex de Grassi       Pure Alex de Grassi        Children's Dance        1978
+ 8 Blondie              Eat To The Beat            Ring Of Fire (Live) (~  1979
+ 9 Sid Vicious          Sid Sings                  Chatterbox (Live)       1979
+10 Jelly Roll Kings     Rockin' The Juke Joint Do~ Mighty Long Time        1979
+# ... with 990 more rows
+> 
+> # Try to select columns using [ ]
+> tryCatch({
+      # Selection code here
+      track_metadata_tbl[, c("artist_name", "release", "title", "year")]
+    },
+    error = print
+  )
+<simpleError in track_metadata_tbl[, c("artist_name", "release", "title", "year")]: incorrect number of dimensions>
+
+# intense error message: that's normal for sparklyr errors. tryCatch(error = print) is a nice way to see errors without them stopping the execution of your code.
+
+# Filtering rows ---------------------------------
+> # track_metadata_tbl has been pre-defined
+> glimpse(track_metadata_tbl)
+Observations: 25
+Variables: 11
+$ track_id           <chr> "TRSTWXA12903D15238", "TRQNQZX128F422BA2F", "TRT...
+$ title              <chr> "The Breeze and I", "Soul Of A Short Fat Man", "...
+$ song_id            <chr> "SOCQMXH12AC468B61D", "SOWULXB12A6D4FC1AD", "SOH...
+$ release            <chr> "Espana", "Diary Of A Band Vol 1 & 2", "The Blue...
+$ artist_id          <chr> "ARNNU4G1187FB5991B", "ARJ9DSA1187B990E00", "ARQ...
+$ artist_mbid        <chr> "5c176092-cb4d-4e05-806b-1e9414f2b28c", "4756395...
+$ artist_name        <chr> "101 Strings", "John Mayall & The Bluesbreakers"...
+$ duration           <dbl> 221.1000, 368.1955, 329.1424, 193.2534, 320.8093...
+$ artist_familiarity <dbl> 0.4669621, 0.6268031, 0.4405487, 0.5358244, 0.78...
+$ artist_hotttnesss  <dbl> 0.3687790, 0.4052347, 0.3548943, 0.4150033, 0.49...
+$ year               <int> 1968, 1968, 1969, 1970, 1972, 1977, 1978, 1979, ...
+> 
+> # Manipulate the track metadata with filtering rows ---------------------------------
+> track_metadata_tbl %>%
+    # Select columns
+    select(artist_name, release, title,year) %>%
+    # Filter rows
+    filter(year >= 1960, year < 1970)
+# Source:   lazy query [?? x 4]
+# Database: spark_connection
+   artist_name          release                  title                     year
+   <chr>                <chr>                    <chr>                    <int>
+ 1 101 Strings          Espana                   The Breeze and I          1968
+ 2 John Mayall & The B~ Diary Of A Band Vol 1 &~ Soul Of A Short Fat Man   1968
+ 3 Illinois Jacquet     The Blues; That's Me!    The Galloping Latin       1969
+ 4 Cliff Richard & The~ Me And My Shadows        Choppin' 'n' Changin' (~  1960
+ 5 Cliff Richard And T~ The Hits In Between      I Love You                1960
+ 6 Chubby Checker       Hits of The 60's Volume~ The Twist                 1960
+ 7 Perez Prado          100 Hits - 50s           Cherry Pink And Apple B~  1960
+ 8 Charlie Mingus       Period's Jazz Digest Vo~ Stormy Weather            1960
+ 9 Elvis Presley        His Hand In Mine         If We Never Meet Again    1960
+10 The Drifters         Save The Last Dance For~ Some Kind Of Wonderful ~  1960
+# ... with 108 more rows
+
+# Arranging rows ------------------------------------------------------------------------------
+> # track_metadata_tbl has been pre-defined
+> track_metadata_tbl
+# Source:   table<track_metadata> [?? x 11]
+# Database: spark_connection
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRSTWXA~ The ~ SOCQMX~ Espana  ARNNU4G1~ 5c176092-c~ 101 Strings     221.
+ 2 TRQNQZX~ Soul~ SOWULX~ Diary ~ ARJ9DSA1~ 4756395c-5~ John Mayal~     368.
+ 3 TRTPVEB~ The ~ SOHKYI~ The Bl~ ARQ8CJ61~ 15ab8bb8-7~ Illinois J~     329.
+ 4 TRZZNFB~ The ~ SOJVHK~ Give M~ ARFAKTH1~ 0174d942-3~ Chairmen O~     193.
+ 5 TRZAAWN~ Litt~ SORYVB~ Beauti~ ARNMWP51~ 4dca4bb2-2~ Curtis May~     321.
+ 6 TRRAOAD~ Will~ SODTBY~ Jammys~ ARMDWND1~ 8ee00333-e~ Black Uhuru     179.
+ 7 TRPGBAO~ Chil~ SOCTEW~ Pure A~ ARBSLZ11~ f940c4dd-f~ Alex de Gr~     162.
+ 8 TRQLTYD~ Ring~ SONNCT~ Eat To~ ARM7YQQ1~ 4d2956d1-a~ Blondie         210.
+ 9 TRJNORS~ Chat~ SOGQHH~ Sid Si~ ARBK4PS1~ 637504e3-b~ Sid Vicious     111.
+10 TRLSQUC~ Migh~ SOTFGI~ Rockin~ ARRHNLN1~ d86c3c8b-8~ Jelly Roll~     242.
+# ... with 990 more rows, and 3 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>
+> 
+> # Manipulate the track metadata ---------------------------------
+> track_metadata_tbl %>%
+    # Select columns
+    select(artist_name, release, title, year ) %>%
+    # Filter rows
+    filter(year>=1960, year <1970) %>%
+    # Arrange rows
+    arrange(artist_name, desc(year), title)
+# Source:     lazy query [?? x 4]
+# Database:   spark_connection
+# Ordered by: artist_name, desc(year), title
+   artist_name                   release                     title         year
+   <chr>                         <chr>                       <chr>        <int>
+ 1 101 Strings                   Espana                      The Breeze ~  1968
+ 2 ? & The Mysterians            The Best Of ? & The Myster~ Smokes        1967
+ 3 Albert Ayler                  Live In Greenwich Village:~ Omega Is Th~  1967
+ 4 Alice Cooper                  Pretties For You            Apple Bush ~  1969
+ 5 Barbra Streisand; Arranged a~ A Christmas Collection      The Lord's ~  1967
+ 6 Barry McGuire                 Eve Of Destruction          You Were On~  1965
+ 7 Ben E. King                   Seven Letters               Jamaica (LP~  1965
+ 8 Bill Monroe & His Bluegrass ~ Definitive Americana        Blue Moon O~  1961
+ 9 Bill Monroe & The Bluegrass ~ The Essential Collection    Blue Moon O~  1961
+10 Bo Diddley                    Turn up the house lights    Roadrunner    1960
+# ... with 108 more rows
+> 
+---------------------------------
+> # Manipulate the track metadata with mutate:  Mutation has two purposes: changing columns, and adding new columns.
+> track_metadata_tbl %>%
+    # Select columns
+    select(title, duration)%>%
+    # Mutate columns
+    mutate(duration_minutes = duration/60 )
+# Source:   lazy query [?? x 3]
+# Database: spark_connection
+   title                                       duration duration_minutes
+   <chr>                                          <dbl>            <dbl>
+ 1 The Breeze and I                                221.             3.68
+ 2 Soul Of A Short Fat Man                         368.             6.14
+ 3 The Galloping Latin                             329.             5.49
+ 4 The Twelfth Of Never                            193.             3.22
+ 5 Little Child Runnin' Wild                       321.             5.35
+ 6 Willow Tree                                     179.             2.98
+ 7 Children's Dance                                162.             2.69
+ 8 Ring Of Fire (Live) (2001 Digital Remaster)     210.             3.50
+ 9 Chatterbox (Live)                               111.             1.85
+10 Mighty Long Time                                242.             4.03
+# ... with 990 more rows
+> 
+# Summarizing returns a tibble with a summary statistic in each column with summarize
+> # Manipulate the track metadata
+> track_metadata_tbl %>%
+    # Select columns
+    select(title, duration) %>%
+    # Mutate columns
+    mutate(duration_minutes =  duration/60) %>%
+    # Summarize columns
+    summarize(mean_duration_minutes = mean(duration_minutes))
+# Source:   lazy query [?? x 1]
+# Database: spark_connection
+  mean_duration_minutes
+                  <dbl>
+1                  3.54
