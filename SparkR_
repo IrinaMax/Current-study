@@ -699,3 +699,177 @@ track_metadata_tbl %>%
 > 
 > 
 # Transforming continuous variables into categorical (1)--------------------------------------
+> # ft_bucketizer() converts from continuous to categorical; now you'll see a common, special case of this.
+> track_metadata_tbl
+# Source:   table<track_metadata> [?? x 11]
+# Database: spark_connection
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRSTWXA~ The ~ SOCQMX~ Espana  ARNNU4G1~ 5c176092-c~ 101 Strings     221.
+ 2 TRQNQZX~ Soul~ SOWULX~ Diary ~ ARJ9DSA1~ 4756395c-5~ John Mayal~     368.
+ 3 TRTPVEB~ The ~ SOHKYI~ The Bl~ ARQ8CJ61~ 15ab8bb8-7~ Illinois J~     329.
+ 4 TRZZNFB~ The ~ SOJVHK~ Give M~ ARFAKTH1~ 0174d942-3~ Chairmen O~     193.
+ 5 TRZAAWN~ Litt~ SORYVB~ Beauti~ ARNMWP51~ 4dca4bb2-2~ Curtis May~     321.
+ 6 TRRAOAD~ Will~ SODTBY~ Jammys~ ARMDWND1~ 8ee00333-e~ Black Uhuru     179.
+ 7 TRPGBAO~ Chil~ SOCTEW~ Pure A~ ARBSLZ11~ f940c4dd-f~ Alex de Gr~     162.
+ 8 TRQLTYD~ Ring~ SONNCT~ Eat To~ ARM7YQQ1~ 4d2956d1-a~ Blondie         210.
+ 9 TRJNORS~ Chat~ SOGQHH~ Sid Si~ ARBK4PS1~ 637504e3-b~ Sid Vicious     111.
+10 TRLSQUC~ Migh~ SOTFGI~ Rockin~ ARRHNLN1~ d86c3c8b-8~ Jelly Roll~     242.
+# ... with 990 more rows, and 3 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>
+> decades
+[1] 1930.01 1940.01 1950.01 1960.01 1970.01 1980.01 1990.01 2000.01 2010.01
+> decade_labels
+[1] "1930-1940" "1940-1950" "1950-1960" "1960-1970" "1970-1980" "1980-1990"
+[7] "1990-2000" "2000-2010"
+> 
+> hotttnesss_over_time <- track_metadata_tbl %>%
+    # Select artist_hotttnesss and year
+    select(artist_hotttnesss, year ) %>%
+    # Convert year to numeric
+    mutate(year = as.numeric(year)) %>%
+    # Bucketize year to decade using decades vector
+    ft_bucketizer("year", "decade", splits = decades) %>%
+    # Collect the result
+    collect() %>%
+    # Convert decade to factor using decade_labels
+    mutate(decade = factor(decade, labels = decade_labels))
+> 
+> # Draw a boxplot of artist_hotttnesss by decade
+> ggplot(hotttnesss_over_time, aes(decade, artist_hotttnesss)) +
+    geom_boxplot()
+    
+Part2.    
+    
+> # Long songs are released by, on average, slightly more famous artists. 
+#ft_binarizer(), ft_bucketizer(), and ft_quantile_discretizer() all transform continuous variables.
+> track_metadata_tbl
+# Source:   table<track_metadata> [?? x 11]
+# Database: spark_connection
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRSTWXA~ The ~ SOCQMX~ Espana  ARNNU4G1~ 5c176092-c~ 101 Strings     221.
+ 2 TRQNQZX~ Soul~ SOWULX~ Diary ~ ARJ9DSA1~ 4756395c-5~ John Mayal~     368.
+ 3 TRTPVEB~ The ~ SOHKYI~ The Bl~ ARQ8CJ61~ 15ab8bb8-7~ Illinois J~     329.
+ 4 TRZZNFB~ The ~ SOJVHK~ Give M~ ARFAKTH1~ 0174d942-3~ Chairmen O~     193.
+ 5 TRZAAWN~ Litt~ SORYVB~ Beauti~ ARNMWP51~ 4dca4bb2-2~ Curtis May~     321.
+ 6 TRRAOAD~ Will~ SODTBY~ Jammys~ ARMDWND1~ 8ee00333-e~ Black Uhuru     179.
+ 7 TRPGBAO~ Chil~ SOCTEW~ Pure A~ ARBSLZ11~ f940c4dd-f~ Alex de Gr~     162.
+ 8 TRQLTYD~ Ring~ SONNCT~ Eat To~ ARM7YQQ1~ 4d2956d1-a~ Blondie         210.
+ 9 TRJNORS~ Chat~ SOGQHH~ Sid Si~ ARBK4PS1~ 637504e3-b~ Sid Vicious     111.
+10 TRLSQUC~ Migh~ SOTFGI~ Rockin~ ARRHNLN1~ d86c3c8b-8~ Jelly Roll~     242.
+# ... with 990 more rows, and 3 more variables: artist_familiarity <dbl>,
+#   artist_hotttnesss <dbl>, year <int>
+> duration_labels
+[1] "very short" "short"      "medium"     "long"       "very long"
+> 
+> familiarity_by_duration <- track_metadata_tbl %>%
+    # Select duration and artist_familiarity
+    select(duration, artist_familiarity) %>%
+    # Bucketize duration
+    ft_quantile_discretizer("duration", "duration_bin",  n.buckets = 5) %>%
+    # Collect the result
+    collect() %>%
+    # Convert duration bin to factor
+    mutate(duration_bin = factor(duration_bin, labels = duration_labels))
+> 
+> # Draw a boxplot of artist_familiarity by duration_bin
+> ggplot(familiarity_by_duration, aes(duration_bin, artist_familiarity )) +
+    geom_boxplot()    
+
+### -------------------------------More than words: tokenization (1)-----------------------------
+# Transcendent tokenizing! Now for a quick diversion into sentiment analysis to analyze them!
+title_text <- track_metadata_tbl %>%
+  # Select artist_name, title
+  select(artist_name, title) %>%
+  # Tokenize title to words
+  ft_tokenizer("title", "word") %>%
+  # Collect the result
+  collect() %>%
+  # Flatten the word column 
+  mutate(word = lapply(word, as.character)) %>% 
+  # Unnest the list column
+  unnest(word)
+  
+####   ------sprklyr and tidytext work well together for sentiment analysis. (1)  
+  > title_text_tbl
+# Source:   table<title_text> [?? x 3]
+# Database: spark_connection
+   artist_name             title                                   word    
+   <chr>                   <chr>                                   <chr>   
+ 1 Charles Mingus          Meditation (For A Pair Of Wire Cutters) of      
+ 2 Charles Mingus          Meditation (For A Pair Of Wire Cutters) wire    
+ 3 Charles Mingus          Meditation (For A Pair Of Wire Cutters) cutters)
+ 4 Barry McGuire           You Were On My Mind                     you     
+ 5 Barry McGuire           You Were On My Mind                     were    
+ 6 Barry McGuire           You Were On My Mind                     on      
+ 7 Barry McGuire           You Were On My Mind                     my      
+ 8 Barry McGuire           You Were On My Mind                     mind    
+ 9 The Spencer Davis Group When a Man Loves a Woman                when    
+10 The Spencer Davis Group When a Man Loves a Woman                a       
+# ... with 3,238 more rows
+> afinn_sentiments_tbl
+# Source:   table<afinn_sentiments> [?? x 2]
+# Database: spark_connection
+   word        score
+   <chr>       <int>
+ 1 illiteracy     -2
+ 2 illness        -2
+ 3 illnesses      -2
+ 4 imbecile       -3
+ 5 immobilized    -1
+ 6 immortal        2
+ 7 immune          1
+ 8 impatient      -2
+ 9 imperfect      -2
+10 importance      2
+# ... with 2,466 more rows
+> 
+> sentimental_artists <- title_text_tbl %>%
+    # Inner join with sentiments on word field
+    inner_join(afinn_sentiments_tbl, by = "word") %>%
+    # Group by artist
+    group_by(artist_name) %>%
+    # Summarize to get positivity
+    summarize(positivity = sum(score))
+> 
+> 
+> sentimental_artists %>%
+    # Arrange by ascending positivity
+    arrange(positivity) %>%
+    # Get top 5
+    top_n(5)
+Selecting by  positivity
+# Source:     lazy query [?? x 2]
+# Database:   spark_connection
+# Ordered by: positivity
+  artist_name       positivity
+  <chr>                  <dbl>
+1 Percy Mayfield            16
+2 Billie Holiday             7
+3 Sam Cooke                  7
+4 Jimmie Davis               6
+5 Skip James                 6
+6 The Drifters               6
+7 Jimmy Witherspoon          6
+8 Nazz                       6
+> 
+> sentimental_artists %>%
+    # Arrange by descending positivity
+    arrange(desc(positivity)) %>%
+    # Get top 5
+    top_n(5)
+Selecting by  positivity
+# Source:     lazy query [?? x 2]
+# Database:   spark_connection
+# Ordered by: desc(positivity)
+  artist_name       positivity
+  <chr>                  <dbl>
+1 Percy Mayfield            16
+2 Billie Holiday             7
+3 Sam Cooke                  7
+4 Jimmie Davis               6
+5 Skip James                 6
+6 The Drifters               6
+7 Jimmy Witherspoon          6
+8 Nazz                       6
