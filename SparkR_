@@ -881,3 +881,76 @@ track_metadata_tbl %>%
   select(artist_mbid ) %>%
   # Split it by hyphens
   ft_regex_tokenizer("artist_mbid", "artist_mbid_chunks", pattern = "-")
+  
+  
+## --- Sometimes native methods are faster than the dplyr equivalent; sometimes it is the other way around. 
+Profile your code if you need to see where the slowness occurs.
+a_tibble %>%
+  arrange(x, y, z)
+a_tibble %>%
+  sdf_sort(c("x", "y", "z"))
+To see which method is faster, try using both arrange(), and sdf_sort(). 
+You can see how long your code takes to run by wrapping it in microbenchmark(), from the package of the same name.
+microbenchmark({
+  # your code
+})
+> # Compare timings of arrange() and sdf_sort()
+> microbenchmark(
+    arranged = track_metadata_tbl %>%
+      # Arrange by year, then artist_name, then release, then title
+     arrange(year, artist_name, release, title)  %>%
+      # Collect the result
+      collect(),
+    sorted = track_metadata_tbl %>%
+      # Sort by year, then artist_name, then release, then title
+      sdf_sort(c( "year", "artist_name", "release", "title") )%>%
+      # Collect the result
+      collect(),
+    times = 5
+  )
+Unit: milliseconds
+     expr       min       lq     mean   median       uq      max neval
+ arranged  97.70724 102.9738 117.3550 111.4253 122.1706 152.4981     5
+   sorted 113.69395 121.2444 126.6278 126.9589 131.4124 139.8294     5  
+
+##  Shrinking the data by sampling. 
+a_tibble %>%
+  sdf_sample(fraction = 0.1, replacement = FALSE)
+Since the results of the sampling are random, and you will likely want to reuse the shrunken dataset, it is common to use compute() to store the results as another Spark data frame.
+a_tibble %>%
+  sdf_sample(<some args>) %>%
+  compute("sample_dataset")
+  
+> track_metadata_tbl %>%
+    # Sample the data without replacement
+    sdf_sample(fraction = 0.01, replacement = F, seed = 20000229) %>%
+    # Compute the result
+    compute("sample_track_metadata")
+# Source:   table<sample_track_metadata> [?? x 11]
+# Database: spark_connection
+   track_id title song_id release artist_id artist_mbid artist_name duration
+   <chr>    <chr> <chr>   <chr>   <chr>     <chr>       <chr>          <dbl>
+ 1 TRLLBQO~ As A~ SOXSUM~ Warner~ AREDRYV1~ 6840dcbe-3~ Secos And ~     56.9
+ 2 TRCRYZP~ All ~ SOLDTB~ Walk A~ ARA1UU51~ 936addc3-9~ The Misfits    107. 
+ 3 TRXYJTB~ Stup~ SOWHFH~ The Fu~ ARKXBAH1~ 0cf9d983-a~ The Future~     95.0
+ 4 TRBJQAG~ I'm ~ SONMOG~ To Mum~ AROHGM71~ 4189d03a-8~ Kim Weston     168. 
+ 5 TRUPFJK~ How ~ SOSABQ~ Nazz V~ ARYWCFZ1~ ""          Nazz           232. 
+ 6 TRJWBCY~ Tuxe~ SOLPWH~ Tuxedo~ ARV1T931~ 1fd74817-b~ Erskine Ha~    199. 
+ # sdf_sample() can also be used for things like bootstrapping, which use sampling with replacement.
+ 
+ ## Training/testing partitions
+a_tibble %>%
+  sdf_partition(a = 0.1, b = 0.2, c = 0.3, d = 0.4)
+
+partitioned <- track_metadata_tbl %>%
+  # Partition into training and testing sets
+  sdf_partition(training = 0.7, testing = 0.3)
+
+# Get the dimensions of the training set
+dim(partitioned$training)
+
+# Get the dimensions of the testing set
+dim( partitioned$testing)
+
+
+ 
