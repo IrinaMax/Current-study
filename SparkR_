@@ -873,3 +873,11 @@ Selecting by  positivity
 6 The Drifters               6
 7 Jimmy Witherspoon          6
 8 Nazz                       6
+
+# Righteous regex usage.-------------- You can do powerful text manipulations with ft_regex_tokenizer().
+
+track_metadata_tbl %>%
+  # Select artist_mbid column
+  select(artist_mbid ) %>%
+  # Split it by hyphens
+  ft_regex_tokenizer("artist_mbid", "artist_mbid_chunks", pattern = "-")
