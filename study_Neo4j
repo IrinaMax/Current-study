@@ -1,0 +1,362 @@
+1. place relevant Pitchbook files in the $NEO4J_HOME/import
+2. replace relevant file names in file:/// section of cypher queries
+Note: You may or may not need all queries as following 
+
+---------------------------------------------------:Entity---------------------------------------------------------
+CREATE CONSTRAINT ON (e:Entity) ASSERT e.entity_id IS UNIQUE;
+CREATE INDEX ON :Entity(entity_name, entity_id, eci);
+CREATE INDEX ON :Entity(company_id);
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+WITH row
+WHERE row.eci IS NOT NULL
+WITH row, toInt(row.year_founded) as year_founded, coalesce(row.dnb,"None") as dnb, coalesce(row.eci,"None") as eci
+WITH row, year_founded, dnb, apoc.text.lpad(row.eci, 10, '0') as eci
+
+MERGE (e:Entity {entity_id:eci})
+ON CREATE SET 
+	e.entity_name=row.company_name, 
+	e.company_id = row.company_id,
+	e.dnb = dnb,
+	e.eci = eci,
+	e.head_quarter_address = row.hq_address,
+	e.formerly_known_as = row.formerly_known_as,
+	e.year_founded = year_founded,
+	e.number_of_employees = row.number_of_employees,
+	e.ticker = row.ticker,
+	e.create_timestamp = datetime()
+ON MATCH SET
+	e.dnb =
+		CASE 
+			WHEN dnb <> "None"
+			THEN dnb
+			ELSE e.dnb
+		END,
+	e.eci =
+		CASE 
+			WHEN eci <> "None"
+			THEN eci
+			ELSE e.eci
+		END,
+	e.ticker = row.ticker,
+	e.head_quarter_address = row.hq_address,
+	e.number_of_employees = row.number_of_employees,
+	e.update_timestamp = datetime()
+;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+WITH row
+WHERE row.eci IS NULL
+WITH row, toInt(row.year_founded) as year_founded, coalesce(row.company_id,"None") as company_id
+WITH row, year_founded, company_id
+
+MERGE (e:Entity {entity_id:company_id})
+ON CREATE SET 
+	e.entity_name=row.company_name, 
+	e.company_id = company_id,
+	e.head_quarter_address = row.hq_address,
+	e.formerly_known_as = row.formerly_known_as,
+	e.year_founded = year_founded,
+	e.number_of_employees = row.number_of_employees,
+	e.ticker = row.ticker,
+	e.create_timestamp = datetime()
+ON MATCH SET
+	e.ticker = row.ticker,
+	e.head_quarter_address = row.hq_address,
+	e.number_of_employees = row.number_of_employees,
+	e.update_timestamp = datetime()
+;
+
+
+------------------------------------------------------- :Entity (investors)  -------------------------------------------------
+CREATE INDEX ON :Entity(investor_id);
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Investor.csv" AS row
+WITH row
+WHERE row.investor_eci is null and row.investor_id is not null
+
+MERGE (e:Entity {entity_id:row.investor_id})
+ON CREATE SET
+	e.entity_id = row.investor_id,
+	e.entity_name=row.investor_name,
+	e.create_timestamp = datetime(),
+	e.investor_id = row.investor_id
+ON MATCH SET
+	e.entity_name=row.investor_name,
+	e.update_timestamp = datetime(),
+	e.investor_id = row.investor_id
+;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Investor.csv" AS row
+WITH row
+WHERE row.investor_eci is not null
+WITH row
+
+WITH apoc.text.lpad(row.investor_eci, 10, '0') as investor_eci, row
+
+MERGE (e:Entity {entity_id:investor_eci})
+ON CREATE SET
+	e.entity_id = investor_eci,
+	e.eci = investor_eci,
+	e.entity_name=row.investor_name,
+	e.create_timestamp = datetime(),
+	e.investor_id = row.investor_id
+ON MATCH SET
+	e.entity_id = investor_eci,
+	e.eci = investor_eci,
+	e.update_timestamp = datetime(),
+	e.investor_id = row.investor_id
+;
+
+------------------------------------------------------- :Entity - [:BACKED_BY] -> :Financing_Status  -------------------------------------------------
+CREATE CONSTRAINT ON (f:Financing_Status) ASSERT f.financing_status IS UNIQUE;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+
+WITH row
+WHERE row.financing_status IS NOT NULL
+
+
+WITH  row, coalesce(row.company_id,"None") as company_id
+
+MERGE (f:Financing_Status{financing_status:TRIM(row.financing_status)})
+ON CREATE SET 
+	f.create_timestamp = datetime(),
+	f.backed_by = row.financing_status
+ON MATCH SET 
+	f.update_timestamp = datetime(),
+	f.backed_by = row.financing_status
+
+WITH f, company_id
+MATCH (e:Entity {company_id: company_id})
+
+WITH f, e
+MERGE (e)-[:BACKED_BY]->(f)
+;
+
+------------------------------------------------------- :Entity - [:HAS_BUSINESS_STATUS] -> :Business_Status  -------------------------------------------------
+
+CREATE CONSTRAINT ON (s:Business_Status) ASSERT s.status IS UNIQUE;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+
+WITH row
+WHERE row.business_status IS NOT NULL
+
+
+WITH row
+
+MERGE (s:Business_Status{s:TRIM(row.business_status)})
+ON CREATE SET 
+	s.create_timestamp = datetime(),
+	s.business_status = row.business_status
+ON MATCH SET 
+	s.update_timestamp = datetime(),
+	s.business_status = row.business_status
+
+WITH s, row
+MATCH (e:Entity {company_id: row.company_id})
+
+WITH s, e
+MERGE (e)-[:HAS_BUSINESS_STATUS]->(s)
+;
+
+------------------------------------------------------- :Entity - [:IS_IN_BUSINESS_OF] -> :Industry_Code  -------------------------------------------------
+CREATE CONSTRAINT ON (p:Profile) ASSERT p.profile IS UNIQUE;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+
+WITH row
+WHERE row.primary_industry_code IS NOT NULL
+
+
+WITH row 
+
+MERGE (p:Profile{profile:TRIM(row.primary_industry_code)})
+ON CREATE SET
+	p.profile = row.primary_industry_code,
+	p.description = TRIM(row.description),
+	p.create_timestamp = datetime()
+ON MATCH SET 
+	p.profile = row.primary_industry_code,
+	p.description = TRIM(row.description),
+	p.update_timestamp = datetime()
+
+WITH p, row
+MATCH (e:Entity {company_id: row.company_id})
+
+WITH p, e
+MERGE (e)-[:IS_IN_BUSINESS_OF]->(p)
+; 
+
+------------------------------------------------------- :Industry - [:IS_IN_SECTOR] -> :Sector  -------------------------------------------------
+CREATE CONSTRAINT ON (s:Sector) ASSERT s.sector IS UNIQUE;
+CREATE INDEX ON :Sector(sector);
+CREATE CONSTRAINT ON (e:Entity) ASSERT e.company_id IS UNIQUE;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+
+WITH row
+WHERE row.primary_industry_sector IS NOT NULL
+
+
+WITH row
+
+MERGE (s:Sector{sector:TRIM(row.primary_industry_sector)})
+ON CREATE SET 
+	s.create_timestamp = datetime(),
+	s.sector = row.primary_industry_sector
+ON MATCH SET
+	s.update_timestamp = datetime(),
+	s.sector = row.primary_industry_sector
+	
+WITH s, row
+MATCH (e:Entity {entity_id: row.company_id}) - [r:IS_IN_INDUSTRY] -> (i:Industry {industry : row.primary_industry_group})
+
+WITH e, r, i, s
+MERGE (i)-[:IS_IN_SECTOR]->(s)
+; 
+
+------------------------------------------------------- :Entity - [:IS_IN_OTHER_INDUSTRY] -> :Other_Industry --------------------------------------------------
+
+CREATE INDEX ON :Other_Industry(other_industry);
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+
+WITH row
+WHERE row.other_industries IS NOT NULL
+
+
+WITH row, SPLIT(row.other_industries, ',') AS other_industries 
+UNWIND other_industries as o
+
+MERGE (oi:Other_Industry {other_industry:TRIM(o)})
+ON CREATE SET 
+	oi.create_timestamp = datetime(),
+	oi.other_industry = o
+ON MATCH SET 
+	oi.update_timestamp = datetime(),
+	oi.other_industry = o
+
+WITH oi, row
+MATCH (e:Entity {company_id: row.company_id})
+
+WITH oi, e
+MERGE (e)-[:IS_IN_OTHER_INDUSTRY]->(oi)
+;
+
+------------------------------------------------------- :Entity - [:IS_IN_INDUSTRY] -> :Industry --------------------------------------------------
+CREATE CONSTRAINT ON (i:Industry) ASSERT i.industry IS UNIQUE;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+WITH row
+WHERE row.primary_industry_group IS NOT NULL
+and row.primary_industry_code IS NOT NULL
+
+WITH coalesce(row.primary_industry_group, "") as primary_industry_group, coalesce(row.primary_industry_code, "") as primary_industry_code, row
+
+MERGE (i:Industry {industry:TRIM(primary_industry_group)})
+ON CREATE SET 
+	i.create_timestamp = datetime(),
+	i.primary_industry_code = primary_industry_code,
+	i.primary_industry_group = primary_industry_group
+ON MATCH SET 
+	i.primary_industry_code = primary_industry_code,
+	i.primary_industry_group = primary_industry_group,
+	i.update_timestamp = datetime()
+
+WITH i, row
+MATCH (e:Entity {company_id: row.company_id})
+
+WITH e, i
+MERGE (e)-[:IS_IN_INDUSTRY]->(i)
+;
+
+------------------------------------------------------- :Entity - [:ALSO_KNOWN_AS] ->:Alias --------------------------------------------------
+CREATE INDEX ON :Alias(alias);
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Company.csv" AS row
+WITH row
+
+
+WITH row, SPLIT(row.also_known_as, ',') AS aliases
+UNWIND aliases as a
+
+MERGE (al:Alias {alias:TRIM(a)})
+ON CREATE SET 
+al.alias = a,
+al.create_timestamp = datetime()
+ON MATCH SET 
+al.alias = a,
+al.update_timestamp = datetime()
+
+WITH al, row
+MATCH (e:Entity {company_id: row.company_id})
+
+WITH e, al
+MERGE (e)-[:ALSO_KNOWN_AS]->(al)
+;
+
+------------------------------ :DEAL <- [:INVESTED_THROUGH] - :Entity  --------------------------------------
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Investor_Relations.csv" AS row
+WITH row
+WHERE row.deal_id IS NOT NULL
+and row.investor_id IS NOT NULL
+WITH row
+
+MATCH (d:Deal {deal_id:row.deal_id}), (e:Entity {investor_id: row.investor_id})
+
+WITH e, d
+MERGE (e)-[:INVESTED_THROUGH]->(d)
+;
+
+
+------------------------------ :DEAL - [:RECEIVED_INVESTMENT_THROUGH] -> :Entity  --------------------------------------
+CREATE CONSTRAINT ON (d:Deal) ASSERT d.deal_id IS UNIQUE;
+
+USING PERIODIC COMMIT 1000
+LOAD CSV WITH HEADERS FROM "file:///PB_Deals.csv" AS row
+WITH row
+WHERE row.deal_id IS NOT NULL
+
+WITH row
+
+MERGE (d:Deal {deal_id:row.deal_id})
+ON CREATE SET
+	d.deal_id = row.deal_id,
+	d.deal_date = row.deal_date, 
+	d.deal_size = row.deal_date,
+	d.deal_size_status = row.deal_size_status,
+	d.percent_acquired = row.pct_acquired,
+	d.deal_synopsis = row.deal_synopsis,
+	d.deal_status = row.deal_status,
+	d.create_timestamp = datetime()
+ON MATCH SET
+	d.deal_id = row.deal_id,
+	d.deal_date = row.deal_date, 
+	d.deal_size = row.deal_date,
+	d.deal_size_status = row.deal_size_status,
+	d.percent_acquired = row.pct_acquired,
+	d.deal_synopsis = row.deal_synopsis,
+	d.deal_status = row.deal_status,
+	d.update_timestamp = datetime()
+	
+WITH row, d
+MATCH (e:Entity {company_id: row.company_id})
+
+WITH e, d
+MERGE (e)<-[:RECEIVED_INVESTMENT_THROUGH]-(d)
+;
