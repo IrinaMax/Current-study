@@ -1,0 +1,116 @@
+library (igraph)
+library(dplyr)
+library(MASS)
+library(tidyverse)
+
+getwd()
+data <- read.csv("\\\\NAEAST.AD.JPMORGANCHASE.COM/HOME/AMERXBUS/XBUS/CARLHOME01/F671563/impala1.csv", stringsAsFactors = TRUE)
+data %>% summary
+data %>% dim()
+
+data %>% names
+data %>% pairs()
+
+library(Amelia)
+library(caret)
+library(plyr)
+
+missmap(data, main = "missing value in data")
+## Data shows it has no missing Value, but we does has a lot of NULL
+str(data)
+is.na(data)
+
+#replase NULL for NA
+data <- data %>% replace(.=="NULL", NA)
+missmap(data, main = "missing value in data")
+#we have 31% of missing data and 69 observed
+
+# Columns with more than 20% missing values
+a <- (colSums(is.na(data) | data=='', na.rm = TRUE)/nrow(data) > 0.2)
+a1 <- a[a==TRUE]
+a1.names <- names(a1)
+data1 <- data[ , !names(data) %in% a1.names]
+data1 %>% dim
+cat('Number of columns with more than 20% missing values: ,',length(a1),'\n') 
+
+# we have now    53 columns
+
+# nero to O and constant value
+nzv1 <- nearZeroVar(data1, saveMetrics= TRUE)
+num_a<-row.names(nzv1)[nzv1$nzv == TRUE]
+df<-data1[, !names(data1) %in% num_a]
+print('Omitting nzv result')
+print(ncol(df))
+
+df %>% dim
+missmap(df)
+df %>% str
+
+z = df[1000,-c(1,1)]
+#z = df[,]
+means = apply(z,2,mean)
+sds = apply(z,2,sd)
+nor = scale(z,center=means,scale=sds)
+##calculate distance matrix (default is Euclidean distance)
+distance = dist(nor, method = 'euclidean')
+
+# Hierarchical agglomerative clustering using default complete linkage 
+
+df.2hclust <- hclust(distance, method = "complete")
+plot(df.2hclust)
+
+
+#df.2hclust = hclust(dis)
+plot(df.2hclust)
+plot(df.2hclust,labels=df$database_name,  main='Default from hclust')
+plot(df.2hclust,hang=-10)    # fraction of the plot height by which labels should hang below the rest of the plot
+
+# Hierarchical agglomerative clustering using "average" linkage 
+mydata.hclust<-hclust(distance,method="average")
+plot(mydata.hclust,hang=-3)
+
+# Cluster membership
+member = cutree(df.2hclust,10)
+table(member)
+
+member = cutree(df.2hclust,20)
+table(member)
+
+member = cutree(df.2hclust,50)
+table(member)
+
+#Characterizing clusters 
+aggregate(nor,list(member),mean)
+aggregate(df[,-c(1,1)],list(member),mean)
+
+# Scree Plot
+wss <- (nrow(nor)-1)*sum(apply(nor,2,var))
+for (i in 2:50) wss[i] <- sum(kmeans(nor, centers=i)$withinss)
+plot(1:50, wss, type="b", xlab="Number of Clusters", ylab="Within groups sum of squares") 
+
+
+library(clusterplot)
+plot(silhouette(cutree(df.2hclust,10), distance))
+
+# K-means clustering
+kc<-kmeans(nor,7)
+kc
+kc$cluster 
+
+data1 %>%  group_by(database_name, user_name)
+tbl <- data1 %>%  group_by(database_name, statement )
+tbl %>% head(10)
+mt <-data1 %>%  group_by(user_name) %>% summarize( mean_time = mean(durationmillis))
+mt
+# time mean duration for every database
+data1 %>% ggplot(aes(x= data1$database_name, y =mean(data1$durationmillis)))+ geom_col()
+#User frequency
+data1 %>% ggplot(aes(x= data1$user_name, y = frequency(data1)) ) + geom_col()
+#by user
+us <- data1 %>% count("user_name") 
+us
+
+write.csv(data1,"clean_imp_q1.csv") 
+
+
+ss <- data[which(data$statement == "T" & data$durationmillis > 1000)]
