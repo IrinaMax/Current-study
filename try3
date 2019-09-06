@@ -1,0 +1,242 @@
+library (igraph)
+library(dplyr)
+library(MASS)
+library(tidyverse)
+
+getwd()
+data <- read.csv("\\\\NAEAST.AD.JPMORGANCHASE.COM/HOME/AMERXBUS/XBUS/CARLHOME01/F671563/impala1.csv", stringsAsFactors = TRUE)
+data %>% summary
+data %>% dim()
+
+data %>% names
+data %>% pairs()
+
+library(Amelia)
+library(caret)
+library(plyr)
+
+missmap(data, main = "missing value in data")
+## Data shows it has no missing Value, but we does has a lot of NULL
+str(data)
+is.na(data)
+
+#replase NULL for NA
+data <- data %>% replace(.=="NULL", NA)
+missmap(data, main = "missing value in data")
+#we have 31% of missing data and 69 observed
+
+# Columns with more than 20% missing values
+a <- (colSums(is.na(data) | data=='', na.rm = TRUE)/nrow(data) > 0.2)
+a1 <- a[a==TRUE]
+a1.names <- names(a1)
+data1 <- data[ , !names(data) %in% a1.names]
+data1 %>% dim
+cat('Number of columns with more than 20% missing values: ,',length(a1),'\n') 
+
+# we have now    53 columns
+
+# nero to O and constant value
+nzv1 <- nearZeroVar(data1, saveMetrics= TRUE)
+num_a<-row.names(nzv1)[nzv1$nzv == TRUE]
+df<-data1[, !names(data1) %in% num_a]
+print('Omitting nzv result')
+print(ncol(df))
+
+df %>% dim
+missmap(df)
+dm <- (data.matrix(df))
+str(dm)
+
+#cormatrix
+corrplot(cor(df, use ='complete.obs'), order="original",tl.col = 'black', tl.cex=.5 )  
+
+corrplot(cor(df, use ='complete.obs'), order="hclust",tl.col = 'black', tl.cex=.5 )
+
+
+dm.colin <- cor(dm, use = "pairwise.complete.obs")
+dm.colin
+summary(dm.colin)
+
+#highly correlated
+hi_cor <- findCorrelation(dm.colin, cutoff = 0.75, verbose = T)
+hi_cor
+#SHould we elliminate highy correlated?
+#hc = findCorrelation(dm.colin, cutoff = 0.9, names = TRUE)
+important <- colnames(dm[, -dm.colin])
+important
+
+df<-na.omit(df)
+dfn <- as.numeric(df)  # not working  :(  Error: (list) object cannot be coerced to type 'double'
+
+
+# can to scale: Error in colMeans(x, na.rm = TRUE) : 'x' must be numeric
+dm1<-scale(df)
+
+#  How do we convert just the factor columns then? Maybe try some of the more fancy built in conversion calls:
+
+for (col_idx in seq_along(df)) {  
+  df[col_idx] = as.numeric(df[[col_idx]])
+  }
+
+df %>% str   #work 
+
+dm1<-scale(df)
+
+dm1 
+
+dis <- dist(dm1, method = 'euclidean')
+dm1.hclust <- hclust(dis, method = "complete")
+plot(dm1.hclust)
+
+#got the dendrogramm
+
+
+plot(dm1.hclust, labels= df$database_name ,main='Default from hclust')
+plot(dm1.hclust,hang=-1)
+
+
+#agglomerative clustering using "average" linkage 
+dm1.hclust.avg<-hclust(dis,method="average")
+
+plot(dm1.hclust.avg,hang=-1)
+# Cluster membership
+cut1 = cutree(dm1.hclust,10)
+table(cut1)
+
+
+#Characterizing clusters 
+aggregate(dm1,list(cut1),mean)
+aggregate(df[,],list(cut1),mean)
+
+# Scree Plot
+wss <- (nrow(dm1))*sum(apply(dm1,2,var))   # 
+for (i in 2:20) wss[i] <- sum(kmeans(dm1, centers=i)$withinss)
+plot(1:20, wss, type="b", xlab="Number of Clusters", ylab="Within groups sum of squares") 
+
+# K-means clustering
+kc<-kmeans(dm1,3)
+
+
+#-----------------------------------------------------------------
+#method 2 by normalizing without id
+df %>% str
+
+z = df[1000,-c(1,1)]
+#z = df[,]
+means = apply(z,2,mean)
+sds = apply(z,2,sd)
+nor = scale(z,center=means,scale=sds)
+##calculate distance matrix (default is Euclidean distance)
+distance = dist(nor, method = 'euclidean')
+
+# Hierarchical agglomerative clustering using default complete linkage 
+
+df.2hclust <- hclust(distance, method = "complete")
+plot(df.2hclust)
+
+
+#df.2hclust = hclust(dis)
+plot(df.2hclust)
+plot(df.2hclust,labels=df$database_name,  main='Default from hclust')
+plot(df.2hclust,hang=-10)    # fraction of the plot height by which labels should hang below the rest of the plot
+
+# Hierarchical agglomerative clustering using "average" linkage 
+mydata.hclust<-hclust(distance,method="average")
+plot(mydata.hclust,hang=-3)
+
+# Cluster membership
+member = cutree(df.2hclust,10)
+table(member)
+
+member = cutree(df.2hclust,20)
+table(member)
+
+member = cutree(df.2hclust,50)
+table(member)
+
+#Characterizing clusters 
+aggregate(nor,list(member),mean)
+aggregate(df[,-c(1,1)],list(member),mean)
+
+# Scree Plot
+wss <- (nrow(nor)-1)*sum(apply(nor,2,var))
+for (i in 2:50) wss[i] <- sum(kmeans(nor, centers=i)$withinss)
+plot(1:50, wss, type="b", xlab="Number of Clusters", ylab="Within groups sum of squares") 
+
+
+library(clusterplot)
+plot(silhouette(cutree(df.2hclust,10), distance))
+
+# K-means clustering
+kc<-kmeans(nor,7)
+kc
+kc$cluster 
+
+data1 %>%  group_by(database_name, user_name)
+tbl <- data1 %>%  group_by(database_name, statement )
+tbl %>% head(10)
+mt <-data1 %>%  group_by(user_name) %>% summarize( mean_time = mean(durationmillis))
+mt
+# time mean duration for every database
+data1 %>% ggplot(aes(x= data1$database_name, y =mean(data1$durationmillis)))+ geom_col()
+#User frequency
+data1 %>% ggplot(aes(x= data1$database_name, y = frequency(data1$user_name)) ) + geom_col()
+
+#---------------------------------
+# the same with count
+ggplot(data1) +
+   geom_bar(mapping = aes(x = database_name))
+#by user
+us <- data1 %>% count("user_name") 
+us
+library(ggplot2)
+
+data1 %>% ggplot(aes(x = data1$database_name, y = data1$user_name)) + geom_col()
+data1 %>% ggplot(aes(x = data1$database_name, y = frequency( data1$user_name))) + geom_col()
+
+df %>% ggplot(aes(x = df$database_name, y = df$user_name)) + geom_col()
+
+#by biggest user a_navbi_np
+us1 <- data1 %>% filter(user_name == "a_navbi_np")
+us1 
+
+df[,2] %>% hist(main = "database_name")
+
+ggplot(tbl, mapping =aes (x=="user_name")) +
+   geom_histogram(binwidth = 1000)
+
+
+#cormatrix
+corrplot(cor(df, use ='complete.obs'), order="original",tl.col = 'black', tl.cex=.5 ) 
+corrplot(cor(nor, use ='complete.obs'), order="original",tl.col = 'black', tl.cex=.5 )
+
+
+corrplot(cor(df, use ='complete.obs'), order="hclust",tl.col = 'black', tl.cex=.5 )
+
+
+barplot(table(data1$database_name), ylab = "frequency", main = "database utilization", border = "black",  col = "yellow")
+barplot(table(data1$coordinator_hostid), ylab = "frequency", main = "host utilization", border = "black",  col = "yellow")
+barplot(table(data1$attr_hdfs_bytes_read), ylab = "frequency", main = "hdfs utilization", border = "black",  col = "yellow")
+
+barplot(table(data1$durationmillis), ylab = "frequency", main = "Duratiom of time", border = "black",  col = "yellow")
+barplot(table(data1$attr_thread_cpu_time), ylab = "frequency", main = "database utilization", border = "black",  col = "yellow")
+barplot(table(data1$attr_thread_cpu_time_percentage), ylab = "frequency", main = "CPU % time", border = "black",  col = "brown")
+barplot(table(data1$attr_estimated_per_node_peak_memory), ylab = "frequency", main = "estimated_per_node_peak_memory", border = "black",col = "red")
+barplot(table(data1$user_name), ylab = "frequency", main = "user names fre quency", border = "black",  col = "yellow")
+
+ggplot(data = (data1), mapping = aes(x = data1$durationmillis, colour = coordinator_hostid)) +
+  geom_freqpoly(binwidth = 0.5)
+
+ggplot(data1, aes(data1$coordinator_hostid)) + geom_bar() + scale_x_discrete(drop =F)
+
+d1_summary <- df %>%
+  group_by(database_name) %>%
+  summarise(
+    time = mean(durationmillis, na.rm = TRUE),
+    cpu = mean(attr_thread_cpu_time_percentage, na.rm = TRUE)
+   # n = dplyr::n()
+  )
+
+ggplot(d1_summary, aes(cpu, duratiomilles)) + geom_point()
+
+
