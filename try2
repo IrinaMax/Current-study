@@ -1,0 +1,115 @@
+##q_text
+
+library (igraph)
+library(dplyr)
+library(MASS)
+library(tidyverse)
+library(quanteda)
+library(data.table)
+library(stringi)
+library(tm)
+library(tidytext)
+
+
+getwd()
+data <- read.csv("\\\\NAEAST.AD.JPMORGANCHASE.COM/HOME/AMERXBUS/XBUS/CARLHOME01/F671563/impala1.csv", stringsAsFactors = TRUE)
+data %>% summary
+data %>% dim()
+data %>% names
+
+#data %>% filter_at(vars(statement, database_name,user_name, rowsproduced,durationmillis, querystate), var(querystate =="FINISHED"))
+#data %>% filter( statement, querystate =="FINISHED") 
+
+#will get subset only the finished query
+ss <- filter(data,  data$querystate == "FINISHED")
+s <- ss$statement
+s
+write.csv(s, "Query_text.csv")
+
+s_cor <- Corpus(VectorSource(ss$statement))
+s_cor_c <-s_cor
+write.csv(s_cor, "Query_text.csv")
+
+s_cor <- tm_map(s_cor, content_transformer(tolower))
+s_cor
+s_cor <- tm_map(s_cor, removeNumbers)
+
+mystopwords <- c("select", "where", "from", "limit", "as", "yyyy-mm-dd", "max", "min", "length", "count","avg", "null", "yes", "between" )
+mystopwords
+s_cor <- tm_map(s_cor, removeWords, mystopwords)
+s_cor_r <- s_cor
+#remove some punctuation
+s_cor <- gsub("(?!_)(?!.)[[:punct:]]", "", s_cor, perl=T)
+
+s_cor1
+s_cor2 <- gsub("[[:punct:,^\\_\\.]]", "",s_cor)
+s_cor2
+
+s_cor3<- gsub("[^[:alnum:]\\_\\.\\s]", "", s_cor)
+s_cor3
+
+s_cor <- gsub('\\`\\=\\(\\)', '',s_cor) 
+s_cor <- gsub('\\(', ' ',s_cor) 
+s_cor <- gsub('\\)', ' ',s_cor )
+
+
+s_cor4 <- gsub('\\)\\(\\=\\`', '', s_cor)
+s_cor <- gsub("\\s*\\([^\\)]\\)","", s_cor)
+s_cor
+s_cor <- gsub('\\)', ' ',s_cor )
+
+
+tdm <- TermDocumentMatrix(s_cor  )
+inspect(tdm)
+tdm %>% dim
+
+# data_clean <- function(x) sapply (strsplit(x , '[`]' ), `[` , 1)
+# data_clean(tdm)
+
+tdmatrix <- as.matrix(tdm)
+inspect(tdmatrix)
+tdmatrix
+wordFriq <- sort(rowSums(tdmatrix), decreasing =  T)
+wordFriq
+
+word <- summarize(count = sum(Terms))
+
+
+word_d <- 
+ss$statement
+s_cor %>% mutate(word = statement %>% stri_split_fixed(pattern =" ")) %>% unnest(word) %>% group_by(word, date) %>% summarize(count =n())
+
+
+tidy_d <- tidy_books %>%
+  anti_join(stop_words)
+library(re)
+
+
+  
+
+
+# st <- strsplit(s, split)
+# s<- tm_map(s,tolower)
+# 
+# s[, list(word = unlist(stri_extract_all_words()))][,list(freq=.N), by = 'word'][order(word),]
+# 
+# s[, list(word = unlist(stri_extract_all_words(comments)))][, list(freq=.N), by = c('date', 'word')][order(date, word),]
+
+
+# removeMostPunctuation<-
+#   function (x, preserve_intra_word_dashes = FALSE) 
+#   {
+#     rmpunct <- function(x) {
+#       x <- gsub("_", "\002", x)
+#       x <- gsub("[[:punct:]]+", "", x)
+#       gsub("\002", "_", x, fixed = TRUE)
+#     }
+#     if (preserve_intra_word_dashes) { 
+#       x <- gsub("(\\w)-(\\w)", "\\1\001\\2", x)
+#       x <- rmpunct(x)
+#       gsub("\001", "-", x, fixed = TRUE)
+#     } else {
+#       rmpunct(x)
+#     }
+#  }
+#s_cor <- tm_map(s_cor, removePunctuation)
