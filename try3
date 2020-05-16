@@ -4,7 +4,7 @@ library(MASS)
 library(tidyverse)
 
 getwd()
-data <- read.csv("\\\\NAEAST.AD.JPMORGANCHASE.COM/HOME/AMERXBUS/XBUS/CARLHOME01/F671563/impala1.csv", stringsAsFactors = TRUE)
+data <- read.csv("\\\\impala1.csv", stringsAsFactors = TRUE)
 data %>% summary
 data %>% dim()
 
